@@ -1,13 +1,26 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const basicAuth = require('express-basic-auth');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware de base
 app.use(express.json());
 app.use(express.text({ limit: '10mb' }));
+
+// Protection d'accès par mot de passe (Basic Auth)
+const adminEmail = process.env.ADMIN_EMAIL || 'admin@exemple.com';
+const adminPassword = process.env.ADMIN_PASSWORD || 'motdepasse123';
+
+app.use(basicAuth({
+    users: { [adminEmail]: adminPassword },
+    challenge: true,
+    unauthorizedResponse: 'Accès refusé : Identifiants incorrects.'
+}));
+
+// Fichiers statiques (protégés)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Connexion / Création de la base de données SQLite
@@ -240,7 +253,7 @@ app.delete('/api/depenses-personnelles/:id', (req, res) => {
     });
 });
 
-// 5. ROUTE : ALERTES J-3 (AVEC CALCUL DES JOURS RESTANTS)
+// 5. ROUTE : ALERTES J-3
 app.get('/api/alertes-j3', (req, res) => {
     const queryClients = `
         SELECT client_nom as nom, client_telephone as telephone, plateforme, date_fin,
@@ -269,5 +282,5 @@ app.get('/api/alertes-j3', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Serveur démarré sur http://localhost:${PORT}`);
+    console.log(`Serveur démarré sur le port ${PORT}`);
 });
