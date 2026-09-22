@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>KOBA STREAMING - Gestion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Barre d'en-tête Mobile (iOS & Android) -->
+    <header class="mobile-header">
+        <div class="brand">
+            <img src="logo.jpg" alt="KOBA STREAMING" class="sidebar-logo">
+            <div class="brand-text">
+                <span class="title">KOBA</span>
+                <span class="subtitle">STREAMING</span>
+            </div>
+        </div>
+        <button class="menu-toggle" id="menu-toggle" onclick="toggleMobileMenu()" aria-label="Ouvrir le menu">☰</button>
+    </header>
+
+    <div class="app-layout">
+        <!-- Barre latérale / Drawer mobile -->
+        <div class="sidebar" id="sidebar">
+            <div class="brand">
+                <img src="logo.jpg" alt="KOBA STREAMING" class="sidebar-logo">
+                <div class="brand-text">
+                    <span class="title">KOBA</span>
+                    <span class="subtitle">STREAMING</span>
+                </div>
+            </div>
+            <ul class="menu">
+                <li onclick="showTab('dashboard', event)" class="active">📊 Tableau de bord</li>
+                <li onclick="showTab('historique', event)">📈 Historique Mensuel</li>
+                <li onclick="showTab('comptes', event)">🔑 Comptes Maîtres</li>
+                <li onclick="showTab('abonnes', event)">👥 Abonnés & Ventes</li>
+                <li onclick="showTab('rappels', event)">⚠️ Rappels J-3</li>
+                <li onclick="showTab('depenses', event)">💸 Dépenses Perso</li>
+            </ul>
+        </div>
+
+        <!-- Overlay sombre en arrière-plan du menu mobile -->
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileMenu()"></div>
+
+        <div class="main-content">
+            <!-- TABLEAU DE BORD -->
+            <section id="dashboard" class="tab-content active">
+                <h1>Résumé Financier en Temps Réel</h1>
+                <div class="cards">
+                    <div class="card">
+                        <h3>TOTAL REVENUS (VENTES)</h3>
+                        <p id="total-revenus">0 FCFA</p>
+                    </div>
+                    <div class="card">
+                        <h3>COÛTS D'ACHAT (DÉPENSES)</h3>
+                        <p id="total-couts">0 FCFA</p>
+                    </div>
+                    <div class="card">
+                        <h3>BÉNÉFICE BRUT</h3>
+                        <p id="benefice-brut">0 FCFA</p>
+                    </div>
+                    <div class="card">
+                        <h3>DÉPENSES PERSONNELLES</h3>
+                        <p id="total-depenses-perso">0 FCFA</p>
+                    </div>
+                    <div class="card highlight">
+                        <h3>SOLDE NET EN CAISSE</h3>
+                        <p id="solde-net">0 FCFA</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HISTORIQUE MENSUEL -->
+            <section id="historique" class="tab-content" style="display:none;">
+                <h1>Historique Financier par Mois</h1>
+                <div class="table-responsive">
+                    <table id="table-historique">
+                        <thead>
+                            <tr>
+                                <th>Mois</th>
+                                <th>Revenus (Ventes)</th>
+                                <th>Coûts d'Achat</th>
+                                <th>Bénéfice Brut</th>
+                                <th>Dépenses Perso</th>
+                                <th>Bénéfice Net</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- COMPTES MAÎTRES -->
+            <section id="comptes" class="tab-content" style="display:none;">
+                <h1>Gestion des Comptes Maîtres</h1>
+                <div class="form-container">
+                    <h3>Ajouter un compte</h3>
+                    <form id="form-compte">
+                        <select id="compte-plateforme" required>
+                            <option value="">Sélectionner un service...</option>
+                            <option value="Netflix Co-abonnement">Netflix Co-abonnement</option>
+                            <option value="Netflix Personnel">Netflix Personnel</option>
+                            <option value="Spotify Famille">Spotify Famille</option>
+                            <option value="Prime Video">Prime Video</option>
+                            <option value="Disney+">Disney+</option>
+                            <option value="VPN">VPN</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                        <input type="email" id="compte-email" placeholder="Email du compte" required>
+                        <input type="text" id="compte-mdp" placeholder="Mot de passe">
+                        <input type="number" id="compte-cout" placeholder="Coût d'achat (FCFA)" required>
+                        <input type="number" id="compte-places" placeholder="Nombre de profils max" value="5">
+                        <div class="form-group-full">
+                            <label>Date de renouvellement :</label>
+                            <input type="date" id="compte-date" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Enregistrer le compte</button>
+                        <p id="msg-compte"></p>
+                    </form>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="table-comptes">
+                        <thead>
+                            <tr>
+                                <th>Plateforme</th>
+                                <th>Email</th>
+                                <th>Coût</th>
+                                <th>Profils Actifs</th>
+                                <th>Total Vendu</th>
+                                <th>Bénéfice Net</th>
+                                <th>Date Renouv.</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ABONNÉS & VENTES -->
+            <section id="abonnes" class="tab-content" style="display:none;">
+                <h1>Gestion des Abonnés & Ventes</h1>
+                <div class="form-container">
+                    <h3>Nouvelle vente / Nouvel abonné</h3>
+                    <form id="form-abonne">
+                        <input type="text" id="abo-nom" placeholder="Nom du client" required>
+                        <input type="text" id="abo-tel" placeholder="Numéro WhatsApp (ex: 229...)" required>
+                        <select id="abo-plateforme" required>
+                            <option value="Netflix">Netflix</option>
+                            <option value="Spotify">Spotify</option>
+                            <option value="Prime">Prime Video</option>
+                            <option value="Disney">Disney+</option>
+                            <option value="VPN">VPN</option>
+                            <option value="CapCut Pro">CapCut Pro</option>
+                            <option value="ChatGPT Plus">ChatGPT Plus</option>
+                        </select>
+                        <select id="abo-compte-maitre">
+                            <option value="">-- Lier à un Compte Maître (Optionnel) --</option>
+                        </select>
+                        <input type="text" id="abo-profil-mdp" placeholder="Code PIN / Mot de passe du profil">
+                        <input type="number" id="abo-prix" placeholder="Prix de vente (FCFA)" required>
+                        
+                        <div class="form-group">
+                            <label>Date de fin d'abonnement :</label>
+                            <input type="date" id="abo-date-fin" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Renouvellement :</label>
+                            <select id="abo-renouvellement">
+                                <option value="Non">Non</option>
+                                <option value="Oui">Oui</option>
+                                <option value="Coupé">Coupé</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Paiement :</label>
+                            <select id="abo-paiement">
+                                <option value="Payé">Payé</option>
+                                <option value="Non payé">Non payé</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-submit">Enregistrer la vente</button>
+                        <p id="msg-abonne"></p>
+                    </form>
+                </div>
+                
+                <div class="table-header-actions">
+                    <h3>Liste des abonnements</h3>
+                    <button onclick="viderToutLesAbonnes()" class="btn-danger">🗑️ Vider toute la liste</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="table-abonnes">
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Contact</th>
+                                <th>Plateforme</th>
+                                <th>Email Compte</th>
+                                <th>Code PIN</th>
+                                <th>Prix</th>
+                                <th>Date Fin</th>
+                                <th>Renouv.</th>
+                                <th>Paiement</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- RAPPELS J-3 -->
+            <section id="rappels" class="tab-content" style="display:none;">
+                <h1>Rappels Automatiques (J-3)</h1>
+                <div class="alerte-section">
+                    <h3 class="title-alert-red">🔴 Abonnements Clients à relancer</h3>
+                    <div class="table-responsive">
+                        <table id="table-alertes-clients">
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th>Numéro</th>
+                                    <th>Plateforme</th>
+                                    <th>Date Fin</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="alerte-section" style="margin-top: 30px;">
+                    <h3 class="title-alert-orange">🟠 Comptes Maîtres à renouveler</h3>
+                    <div class="table-responsive">
+                        <table id="table-alertes-comptes">
+                            <thead>
+                                <tr>
+                                    <th>Plateforme</th>
+                                    <th>Email Compte</th>
+                                    <th>Date Renouvellement</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DÉPENSES PERSO -->
+            <section id="depenses" class="tab-content" style="display:none;">
+                <h1>Dépenses Personnelles</h1>
+                <div class="form-container">
+                    <h3>Retrait dans la caisse</h3>
+                    <form id="form-depense">
+                        <input type="text" id="depense-desc" placeholder="Raison (ex: Carburant, Manger...)" required>
+                        <input type="number" id="depense-montant" placeholder="Montant retiré (FCFA)" required>
+                        <button type="submit" class="btn-danger-submit">Enregistrer la dépense</button>
+                        <p id="msg-depense"></p>
+                    </form>
+                </div>
+
+                <h3 class="section-subtitle">Historique des retraits</h3>
+                <div class="table-responsive">
+                    <table id="table-depenses">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Montant</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('open');
+            if (overlay) overlay.classList.toggle('open');
+        }
+
+        // Fermeture automatique du menu lors du choix d'un onglet sur téléphone
+        document.querySelectorAll('.menu li').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 850) {
+                    const sidebar = document.getElementById('sidebar');
+                    const overlay = document.getElementById('sidebar-overlay');
+                    if (sidebar) sidebar.classList.remove('open');
+                    if (overlay) overlay.classList.remove('open');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
