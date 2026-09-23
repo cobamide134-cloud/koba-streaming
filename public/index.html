@@ -37,6 +37,7 @@
                 <li onclick="showTab('abonnes', event)">👥 Abonnés & Ventes</li>
                 <li onclick="showTab('rappels', event)">⚠️ Rappels J-3</li>
                 <li onclick="showTab('depenses', event)">💸 Dépenses Perso</li>
+                <li onclick="deconnexion()" class="menu-logout">🚪 Déconnexion</li>
             </ul>
         </div>
 
@@ -228,6 +229,7 @@
                                     <th>Numéro</th>
                                     <th>Plateforme</th>
                                     <th>Date Fin</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -287,12 +289,12 @@
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
-            sidebar.classList.toggle('open');
+            if (sidebar) sidebar.classList.toggle('open');
             if (overlay) overlay.classList.toggle('open');
         }
 
         // Fermeture automatique du menu lors du choix d'un onglet sur téléphone
-        document.querySelectorAll('.menu li').forEach(item => {
+        document.querySelectorAll('.menu li:not(.menu-logout)').forEach(item => {
             item.addEventListener('click', () => {
                 if (window.innerWidth <= 850) {
                     const sidebar = document.getElementById('sidebar');

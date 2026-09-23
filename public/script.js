@@ -19,12 +19,22 @@ function showTab(tabId, evt) {
     if (tabId === 'depenses') chargerDepenses();
 }
 
+// Fonction de déconnexion de la session HTTP Basic Auth
+function deconnexion() {
+    if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
+        // Envoie de faux identifiants pour réinitialiser le cache d'authentification du navigateur
+        fetch('/api/finances/resume', {
+            headers: { 'Authorization': 'Basic ' + btoa('logout:logout') }
+        }).finally(() => {
+            window.location.href = '/logout';
+        });
+    }
+}
+
 // Générateur de lien WhatsApp international avec messages personnalisés selon l'expiration
 function genererLienWhatsApp(telephone, nom, plateforme, joursRestants) {
-    // Nettoyage du numéro de téléphone (enlève les espaces, +, etc.)
     let phoneClean = (telephone || '').replace(/\D/g, '');
     
-    // Si le numéro comporte 8 chiffres (numéro Bénin sans indicatif), on ajoute 229 par défaut
     if (phoneClean.length === 8) {
         phoneClean = '229' + phoneClean;
     }
@@ -395,7 +405,7 @@ async function chargerDepenses() {
         }
     } catch (e) {
         console.error("Erreur dépenses personnelles:", e);
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#ff4757;">Erreur lors du chargement des dépenses (Vérifiez la route '/api/depenses-personnelles').</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#ff4757;">Erreur lors du chargement des dépenses.</td></tr>`;
     }
 }
 

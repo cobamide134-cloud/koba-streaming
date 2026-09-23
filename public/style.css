@@ -149,6 +149,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: 100%;
 }
 
 .menu li {
@@ -174,6 +175,20 @@ body {
     color: #ffffff;
     background: var(--primary-gradient);
     box-shadow: var(--shadow-glow);
+}
+
+.menu li.menu-logout {
+    margin-top: auto;
+    color: #ff4757;
+    border: 1px solid rgba(255, 71, 87, 0.3);
+    background-color: rgba(255, 71, 87, 0.08);
+}
+
+.menu li.menu-logout:hover {
+    background-color: #ff4757;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
+    transform: translateX(4px);
 }
 
 /* --------------------------------------------------------------------------

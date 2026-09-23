@@ -10,6 +10,35 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.text({ limit: '10mb' }));
 
+// ROUTE DE DÉCONNEXION (Placée avant la protection par mot de passe)
+app.get('/logout', (req, res) => {
+    res.status(401).set('WWW-Authenticate', 'Basic realm="KOBA STREAMING"').send(`
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Déconnexion - KOBA STREAMING</title>
+            <style>
+                body { background: #07090e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; padding: 20px; box-sizing: border-box; }
+                .card { background: #0a0d14; border: 1px solid rgba(255,255,255,0.1); padding: 40px; border-radius: 16px; max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+                h1 { color: #00a8ff; font-size: 1.8rem; margin-bottom: 15px; }
+                p { color: #8a99ad; margin-bottom: 25px; font-size: 1rem; }
+                a { display: inline-block; background: linear-gradient(135deg, #00a8ff 0%, #0066ff 100%); color: #fff; text-decoration: none; font-weight: bold; padding: 12px 24px; border-radius: 8px; transition: all 0.25s ease; }
+                a:hover { opacity: 0.9; transform: translateY(-2px); }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Déconnexion réussie</h1>
+                <p>Votre session a été fermée en toute sécurité.</p>
+                <a href="/">Se reconnecter</a>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
 // Protection d'accès par mot de passe (Basic Auth)
 const adminEmail = process.env.ADMIN_EMAIL || 'admin@exemple.com';
 const adminPassword = process.env.ADMIN_PASSWORD || 'motdepasse123';
