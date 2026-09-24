@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - KOBA STREAMING</title>
+    <style>
+        body {
+            background-color: #0b0f19; /* Fond sombre assorti à votre logo */
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .card {
+            background: #121826; /* Gris très sombre / bleu nuit */
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 40px;
+            border-radius: 16px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .logo-container img {
+            height: 70px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        .subtitle-top {
+            color: #00a8ff; /* Bleu électrique de votre logo */
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+        h1 {
+            color: #ffffff;
+            font-size: 1.8rem;
+            margin: 0 0 8px 0;
+        }
+        p.desc {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #d1d5db;
+            margin-bottom: 8px;
+        }
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            background-color: #0b0f19;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus {
+            border-color: #00a8ff; /* Bleu électrique du logo au focus */
+            box-shadow: 0 0 0 3px rgba(0, 168, 255, 0.2);
+        }
+        .btn-submit {
+            width: 100%;
+            /* Dégradé basé sur le bleu électrique de votre logo */
+            background: linear-gradient(135deg, #00a8ff 0%, #0077ff 100%);
+            color: #ffffff;
+            border: none;
+            font-weight: bold;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            margin-top: 5px;
+            box-shadow: 0 4px 15px rgba(0, 168, 255, 0.3);
+        }
+        .btn-submit:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .error-msg {
+            color: #ff4757;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .footer-security {
+            margin-top: 24px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo-container">
+            <img src="logo.jpg" alt="KOBA STREAMING Logo">
+        </div>
+        
+        <div class="subtitle-top">ESPACE GESTIONNAIRE</div>
+        <h1>Connexion</h1>
+        <p class="desc">Connectez-vous pour gérer vos abonnements, vos clients et vos comptes maîtres.</p>
+
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label for="username">Adresse email ou identifiant</label>
+                <input type="text" id="username" name="username" placeholder="votre@email.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" name="password" placeholder="Votre mot de passe" required>
+            </div>
+
+            <button type="submit" class="btn-submit">Se connecter</button>
+        </form>
+
+        <div class="error-msg" id="error-box">
+            <!-- Message d'erreur dynamique si les identifiants sont faux -->
+        </div>
+
+        <div class="footer-security">
+            🔒 Accès réservé au propriétaire de la plateforme.
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('error')) {
+            document.getElementById('error-box').innerText = "Identifiants incorrects. Veuillez réessayer.";
+        }
+    </script>
+</body>
+</html>

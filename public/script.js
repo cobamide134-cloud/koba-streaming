@@ -15,36 +15,33 @@ function showTab(tabId, evt) {
     if (tabId === 'historique') chargerHistorique();
     if (tabId === 'rappels') chargerAlertes();
     if (tabId === 'comptes') chargerComptes();
-    if (tabId === 'abonnes') chargerAbonnes();
+    if (tabId === 'abonnes') {
+        chargerComptesPourSelect();
+        chargerAbonnes();
+    }
     if (tabId === 'depenses') chargerDepenses();
 }
 
-// Fonction de déconnexion de la session HTTP Basic Auth
+// Fonction de déconnexion
 function deconnexion() {
     if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
-        // Envoie de faux identifiants pour réinitialiser le cache d'authentification du navigateur
-        fetch('/api/finances/resume', {
-            headers: { 'Authorization': 'Basic ' + btoa('logout:logout') }
-        }).finally(() => {
-            window.location.href = '/logout';
-        });
+        window.location.href = '/logout';
     }
 }
 
-// Générateur de lien WhatsApp international avec messages personnalisés selon l'expiration
+// Générateur de lien WhatsApp international
 function genererLienWhatsApp(telephone, nom, plateforme, joursRestants) {
     let phoneClean = (telephone || '').replace(/\D/g, '');
-    
     if (phoneClean.length === 8) {
         phoneClean = '229' + phoneClean;
     }
 
     let message = "";
     if (joursRestants <= 0) {
-        message = `cc, vous allez bien j'espère. je tiens à vous informer que votre abonnement à expirer. Merci`;
+        message = `cc, vous allez bien j'espère. je tiens à vous informer que votre abonnement a expiré. Merci`;
     } else {
         const nbJoursTxt = joursRestants === 1 ? "1 jour" : `${joursRestants} jours`;
-        message = `cc, vous allez bien j'espère. je tiens à vous informer que votre abonnement ${plateforme} prend fin dans ${nbJoursTxt} et profite de l'occasion pour demander si vous souhaiter renouveler. Merci`;
+        message = `cc, vous allez bien j'espère. je tiens à vous informer que votre abonnement ${plateforme} prend fin dans ${nbJoursTxt} et profite de l'occasion pour demander si vous souhaitez renouveler. Merci`;
     }
 
     return `https://wa.me/${phoneClean}?text=${encodeURIComponent(message)}`;
@@ -96,7 +93,7 @@ async function chargerHistorique() {
     }
 }
 
-// 3. Charger les alertes d'expiration J-3 avec Bouton Rappel WhatsApp
+// 3. Charger les alertes d'expiration J-3
 async function chargerAlertes() {
     try {
         const res = await fetch('/api/alertes-j3');
@@ -108,14 +105,6 @@ async function chargerAlertes() {
             if (data.clientsAExpirer && data.clientsAExpirer.length > 0) {
                 data.clientsAExpirer.forEach(c => {
                     let jr = c.jours_restants;
-                    if (jr === undefined || jr === null) {
-                        const today = new Date();
-                        today.setHours(0,0,0,0);
-                        const dateF = new Date(c.date_fin);
-                        dateF.setHours(0,0,0,0);
-                        jr = Math.round((dateF - today) / (1000 * 60 * 60 * 24));
-                    }
-
                     const lienWa = genererLienWhatsApp(c.telephone, c.nom, c.plateforme, jr);
 
                     tbodyClients.innerHTML += `<tr style="border-bottom: 1px solid #333;">
@@ -164,10 +153,7 @@ async function chargerComptes() {
         const data = await res.json();
         
         const tbody = document.querySelector('#table-comptes tbody');
-        const select = document.getElementById('abo-compte-maitre');
-        
         if (tbody) tbody.innerHTML = '';
-        if (select) select.innerHTML = '<option value="">-- Lier à un Compte Maître (Optionnel) --</option>';
 
         if (data.comptes) {
             data.comptes.forEach(c => {
@@ -194,13 +180,33 @@ async function chargerComptes() {
                         </td>
                     </tr>`;
                 }
-                if (select) {
-                    select.innerHTML += `<option value="${c.id}">${c.plateforme} - ${c.email} (${profilsUtilises}/${c.max_profils} profils)</option>`;
-                }
             });
         }
+        chargerComptesPourSelect();
     } catch (e) {
         console.error("Erreur comptes:", e);
+    }
+}
+
+// Remplir la liste déroulante des comptes maîtres dans le formulaire abonné
+async function chargerComptesPourSelect(selectedId = null) {
+    try {
+        const res = await fetch('/api/comptes-maitres');
+        const data = await res.json();
+        const select = document.getElementById('abo-compte-maitre');
+        
+        if (select) {
+            select.innerHTML = '<option value="">-- Lier à un Compte Maître (Optionnel) --</option>';
+            if (data.comptes) {
+                data.comptes.forEach(c => {
+                    const profilsUtilises = c.profils_utilises || 0;
+                    const isSelected = selectedId && parseInt(selectedId) === parseInt(c.id) ? 'selected' : '';
+                    select.innerHTML += `<option value="${c.id}" ${isSelected}>${c.plateforme} - ${c.email} (${profilsUtilises}/${c.max_profils} profils)</option>`;
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Erreur select comptes maîtres:", e);
     }
 }
 
@@ -252,7 +258,6 @@ async function supprimerCompte(id) {
             }
         } catch (e) {
             console.error("Erreur lors de la suppression :", e);
-            alert("Erreur de connexion avec le serveur.");
         }
     }
 }
@@ -283,8 +288,12 @@ async function chargerAbonnes() {
 
                     const paiementVal = a.paiement || 'Non payé';
                     const paiementColor = paiementVal === 'Payé' ? '#2ed573' : '#ff4757';
-
                     const phoneClean = (a.client_telephone || '').replace(/\D/g, '');
+
+                    // Échappement propre pour éviter les bugs de guillemets
+                    const clientNomSafe = (a.client_nom || '').replace(/'/g, "\\'");
+                    const clientTelSafe = (a.client_telephone || '').replace(/'/g, "\\'");
+                    const profilMdpSafe = (a.profil_mot_de_passe || '').replace(/'/g, "\\'");
 
                     tbody.innerHTML += `
                         <tr style="border-bottom: 1px solid #333;">
@@ -298,7 +307,7 @@ async function chargerAbonnes() {
                             <td><span style="color: ${renouvColor}; font-weight: bold;">${renouvVal}</span></td>
                             <td><span style="color: ${paiementColor}; font-weight: bold;">${paiementVal}</span></td>
                             <td>
-                                <button onclick="editerAbonne(${a.id}, '${a.client_nom}', '${a.client_telephone}', '${a.plateforme}', '${a.profil_mot_de_passe || ''}', ${a.prix_vente}, '${a.date_fin}', '${renouvVal}', '${paiementVal}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                                <button onclick="preparerEditionAbonne(${a.id}, '${clientNomSafe}', '${clientTelSafe}', '${a.plateforme}', ${a.compte_maitre_id || 'null'}, '${profilMdpSafe}', ${a.prix_vente}, '${a.date_fin}', '${renouvVal}', '${paiementVal}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
                                 <button onclick="supprimerAbonne(${a.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
                             </td>
                         </tr>`;
@@ -322,39 +331,37 @@ async function supprimerAbonne(id) {
     }
 }
 
-async function editerAbonne(id, nom, tel, plat, profilMdp, prix, dateFin, renouv, paiement) {
-    const nouveauNom = prompt("Nom du client :", nom);
-    if (nouveauNom === null) return;
-    const nouveauTel = prompt("Téléphone / WhatsApp :", tel);
-    const nouvellePlat = prompt("Plateforme :", plat);
-    const nouveauProfilMdp = prompt("Code PIN / Mot de passe du profil :", profilMdp);
-    const nouveauPrix = prompt("Prix de vente (FCFA) :", prix);
-    const nouvelleDate = prompt("Date de fin (AAAA-MM-JJ) :", dateFin);
-    const nouveauRenouv = prompt("Renouvellement (Oui / Non / Coupé) :", renouv);
-    const nouveauPaiement = prompt("Paiement (Payé / Non payé) :", paiement);
+// Remplir le formulaire principal avec les données de l'abonné sélectionné pour édition
+function preparerEditionAbonne(id, nom, tel, plateforme, compteMaitreId, profilMdp, prix, dateFin, renouv, paiement) {
+    document.getElementById('abo-id').value = id;
+    document.getElementById('abo-nom').value = nom;
+    document.getElementById('abo-tel').value = tel;
+    document.getElementById('abo-plateforme').value = plateforme;
+    document.getElementById('abo-profil-mdp').value = profilMdp;
+    document.getElementById('abo-prix').value = prix;
+    document.getElementById('abo-date-fin').value = dateFin;
+    document.getElementById('abo-renouvellement').value = renouv;
+    document.getElementById('abo-paiement').value = paiement;
 
-    const payload = {
-        nom: nouveauNom,
-        telephone: nouveauTel,
-        plateforme: nouvellePlat,
-        nom_profil: nouveauNom,
-        profil_mot_de_passe: nouveauProfilMdp,
-        prix_vente: parseFloat(nouveauPrix) || 0,
-        date_fin: nouvelleDate,
-        renouvellement: nouveauRenouv || 'Non',
-        paiement: nouveauPaiement || 'Non payé'
-    };
+    // Charger et sélectionner le bon compte maître dans la liste déroulante
+    chargerComptesPourSelect(compteMaitreId);
 
-    await fetch(`/api/abonnements/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
+    // Modifier le titre et les boutons pour indiquer qu'on est en mode modification
+    document.getElementById('form-abonne-titre').innerText = "Modifier l'abonné / la vente";
+    document.getElementById('btn-submit-abonne').innerText = "Mettre à jour l'abonné";
+    document.getElementById('btn-cancel-edit').style.display = "block";
 
-    chargerAbonnes();
-    chargerFinances();
-    chargerComptes();
-    chargerHistorique();
+    // Faire remonter la page vers le formulaire pour un meilleur confort visuel
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function annulerEditionAbonne() {
+    document.getElementById('form-abonne').reset();
+    document.getElementById('abo-id').value = '';
+    document.getElementById('form-abonne-titre').innerText = "Nouvelle vente / Nouvel abonné";
+    document.getElementById('btn-submit-abonne').innerText = "Enregistrer la vente";
+    document.getElementById('btn-cancel-edit').style.display = "none";
+    chargerComptesPourSelect();
 }
 
 async function viderToutLesAbonnes() {
@@ -375,21 +382,9 @@ async function chargerDepenses() {
 
     try {
         const res = await fetch('/api/depenses-personnelles');
-        if (!res.ok) {
-            throw new Error(`Erreur serveur HTTP ${res.status}`);
-        }
-
         const data = await res.json();
         
-        let liste = [];
-        if (Array.isArray(data)) {
-            liste = data;
-        } else if (Array.isArray(data.depenses)) {
-            liste = data.depenses;
-        } else if (Array.isArray(data.data)) {
-            liste = data.data;
-        }
-
+        let liste = Array.isArray(data) ? data : (data.depenses || data.data || []);
         tbody.innerHTML = '';
 
         if (liste.length > 0) {
@@ -414,7 +409,6 @@ async function chargerDepenses() {
         }
     } catch (e) {
         console.error("Erreur dépenses personnelles:", e);
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#ff4757;">Erreur lors du chargement des dépenses.</td></tr>`;
     }
 }
 
@@ -426,7 +420,7 @@ async function supprimerDepense(id) {
             chargerFinances();
             chargerHistorique();
         } catch (e) {
-            console.error("Erreur lors de la suppression de la dépense:", e);
+            console.error("Erreur suppression dépense:", e);
         }
     }
 }
@@ -439,6 +433,7 @@ window.onload = () => {
     chargerHistorique();
     chargerAlertes();
     chargerDepenses();
+    chargerComptesPourSelect();
 
     const formCompte = document.getElementById('form-compte');
     if (formCompte) {
@@ -474,6 +469,7 @@ window.onload = () => {
         formAbonne.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const abonId = document.getElementById('abo-id').value;
             const compteMaitreVal = document.getElementById('abo-compte-maitre').value;
             const clientNom = document.getElementById('abo-nom').value;
 
@@ -491,27 +487,37 @@ window.onload = () => {
             };
             
             try {
-                const response = await fetch('/api/abonnements', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
+                let response;
+                if (abonId) {
+                    // Mode Modification (PUT)
+                    response = await fetch(`/api/abonnements/${abonId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // Mode Création (POST)
+                    response = await fetch('/api/abonnements', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                }
 
                 const result = await response.json();
 
                 if (response.ok) {
-                    document.getElementById('msg-abonne').innerText = "Vente enregistrée avec succès !";
+                    document.getElementById('msg-abonne').innerText = abonId ? "Abonné mis à jour avec succès !" : "Vente enregistrée avec succès !";
                     document.getElementById('msg-abonne').style.color = "#2ed573";
-                    e.target.reset();
                     
+                    annulerEditionAbonne();
                     chargerAbonnes();
                     chargerFinances();
                     chargerComptes();
                     chargerHistorique();
                     chargerAlertes();
                 } else {
-                    console.error("Erreur serveur:", result);
-                    document.getElementById('msg-abonne').innerText = "Erreur : " + (result.error || "Enregistrement échoué");
+                    document.getElementById('msg-abonne').innerText = "Erreur : " + (result.error || "Opération échouée");
                     document.getElementById('msg-abonne').style.color = "#ff4757";
                 }
             } catch (err) {

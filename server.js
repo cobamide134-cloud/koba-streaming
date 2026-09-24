@@ -1,14 +1,23 @@
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
-const basicAuth = require('express-basic-auth');
+const session = require('express-session');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware de base
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.text({ limit: '10mb' }));
+
+// Configuration des sessions
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'koba-streaming-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 24 * 60 * 60 * 1000 } // Session valide 24h
+}));
 
 // Configuration de la connexion PostgreSQL (Neon / Render)
 const pool = new Pool({
@@ -86,50 +95,46 @@ const initDb = async () => {
 
 initDb();
 
-// ROUTE DE DÉCONNEXION
-app.get('/logout', (req, res) => {
-    res.status(401).set('WWW-Authenticate', 'Basic realm="KOBA STREAMING"').send(`
-        <!DOCTYPE html>
-        <html lang="fr">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Déconnexion - KOBA STREAMING</title>
-            <style>
-                body { background: #07090e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; padding: 20px; box-sizing: border-box; }
-                .card { background: #0a0d14; border: 1px solid rgba(255,255,255,0.1); padding: 40px; border-radius: 16px; max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-                h1 { color: #00a8ff; font-size: 1.8rem; margin-bottom: 15px; }
-                p { color: #8a99ad; margin-bottom: 25px; font-size: 1rem; }
-                a { display: inline-block; background: linear-gradient(135deg, #00a8ff 0%, #0066ff 100%); color: #fff; text-decoration: none; font-weight: bold; padding: 12px 24px; border-radius: 8px; transition: all 0.25s ease; }
-                a:hover { opacity: 0.9; transform: translateY(-2px); }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>Déconnexion réussie</h1>
-                <p>Votre session a été fermée en toute sécurité.</p>
-                <a href="/">Se reconnecter</a>
-            </div>
-        </body>
-        </html>
-    `);
-});
-
-// Protection d'accès par mot de passe (Basic Auth)
+// Identifiants administrateur
 const adminEmail = process.env.ADMIN_EMAIL || 'admin@exemple.com';
 const adminPassword = process.env.ADMIN_PASSWORD || 'motdepasse123';
 
-app.use(basicAuth({
-    users: { [adminEmail]: adminPassword },
-    challenge: true,
-    unauthorizedResponse: 'Accès refusé : Identifiants incorrects.'
-}));
+// ROUTE DE CONNEXION (POST)
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === adminEmail && password === adminPassword) {
+        req.session.isAuthenticated = true;
+        res.redirect('/');
+    } else {
+        res.redirect('/login.html?error=1');
+    }
+});
 
-// Fichiers statiques
-app.use(express.static(path.join(__dirname, 'public')));
+// ROUTE DE DÉCONNEXION
+app.get('/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/login.html');
+    });
+});
+
+// MIDDLEWARE DE PROTECTION DES ROUTES DU TABLEAU DE BORD
+const requireAuth = (req, res, next) => {
+    if (req.session && req.session.isAuthenticated) {
+        return next();
+    }
+    res.redirect('/login.html');
+};
+
+// Route pour la page de login statique
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Protection de l'application principale (Fichiers statiques et APIs)
+app.use('/', requireAuth, express.static(path.join(__dirname, 'public')));
 
 // ROUTE : RÉSUMÉ FINANCIER (DASHBOARD)
-app.get('/api/finances/resume', async (req, res) => {
+app.get('/api/finances/resume', requireAuth, async (req, res) => {
     try {
         const q1 = `SELECT COALESCE(SUM(prix_vente), 0) as "totalRevenus" FROM abonnements`;
         const q2 = `SELECT COALESCE(SUM(cout_achat), 0) as "totalCoutsAchat" FROM comptes_maitres`;
@@ -153,7 +158,7 @@ app.get('/api/finances/resume', async (req, res) => {
 });
 
 // 1. ROUTE : HISTORIQUE FINANCIER MENSUEL
-app.get('/api/finances/historique-mensuel', async (req, res) => {
+app.get('/api/finances/historique-mensuel', requireAuth, async (req, res) => {
     const query = `
         SELECT 
             mois,
@@ -198,7 +203,7 @@ app.get('/api/finances/historique-mensuel', async (req, res) => {
 });
 
 // 2. ROUTE : COMPTES MAÎTRES
-app.get('/api/comptes-maitres', async (req, res) => {
+app.get('/api/comptes-maitres', requireAuth, async (req, res) => {
     const query = `
         SELECT c.*, 
                (SELECT COUNT(*) FROM abonnements a WHERE a.compte_maitre_id = c.id) as profils_utilises,
@@ -214,7 +219,7 @@ app.get('/api/comptes-maitres', async (req, res) => {
     }
 });
 
-app.post('/api/comptes-maitres', async (req, res) => {
+app.post('/api/comptes-maitres', requireAuth, async (req, res) => {
     const { plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire } = req.body;
     try {
         const result = await pool.query(
@@ -227,7 +232,7 @@ app.post('/api/comptes-maitres', async (req, res) => {
     }
 });
 
-app.put('/api/comptes-maitres/:id', async (req, res) => {
+app.put('/api/comptes-maitres/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire } = req.body;
     const query = `UPDATE comptes_maitres SET plateforme = $1, email = $2, mot_de_passe = $3, cout_achat = $4, max_profils = $5, date_reabonnement = $6, carte_bancaire = $7 WHERE id = $8`;
@@ -239,7 +244,7 @@ app.put('/api/comptes-maitres/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/comptes-maitres/:id', async (req, res) => {
+app.delete('/api/comptes-maitres/:id', requireAuth, async (req, res) => {
     try {
         await pool.query(`DELETE FROM comptes_maitres WHERE id = $1`, [req.params.id]);
         res.json({ message: "Compte maître supprimé" });
@@ -249,7 +254,7 @@ app.delete('/api/comptes-maitres/:id', async (req, res) => {
 });
 
 // 3. ROUTE : ABONNÉS & VENTES
-app.get('/api/abonnements', async (req, res) => {
+app.get('/api/abonnements', requireAuth, async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT a.*, c.email as compte_email 
@@ -263,12 +268,12 @@ app.get('/api/abonnements', async (req, res) => {
     }
 });
 
-app.post('/api/abonnements', async (req, res) => {
+app.post('/api/abonnements', requireAuth, async (req, res) => {
     const { nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement } = req.body;
     try {
         const result = await pool.query(
             `INSERT INTO abonnements (client_nom, client_telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-            [nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement]
+            [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement]
         );
         res.json({ id: result.rows[0].id });
     } catch (err) {
@@ -276,14 +281,14 @@ app.post('/api/abonnements', async (req, res) => {
     }
 });
 
-app.put('/api/abonnements/:id', async (req, res) => {
+app.put('/api/abonnements/:id', requireAuth, async (req, res) => {
     const { nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement } = req.body;
     try {
         await pool.query(
             `UPDATE abonnements 
              SET client_nom = $1, client_telephone = $2, plateforme = $3, compte_maitre_id = $4, nom_profil = $5, profil_mot_de_passe = $6, prix_vente = $7, date_fin = $8, renouvellement = $9, paiement = $10 
              WHERE id = $11`,
-            [nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, req.params.id]
+            [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, req.params.id]
         );
         res.json({ message: "Abonnement mis à jour" });
     } catch (err) {
@@ -291,7 +296,7 @@ app.put('/api/abonnements/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/abonnements/:id', async (req, res) => {
+app.delete('/api/abonnements/:id', requireAuth, async (req, res) => {
     try {
         await pool.query(`DELETE FROM abonnements WHERE id = $1`, [req.params.id]);
         res.json({ message: "Abonnement supprimé" });
@@ -300,7 +305,7 @@ app.delete('/api/abonnements/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/abonnements/vider/tout', async (req, res) => {
+app.delete('/api/abonnements/vider/tout', requireAuth, async (req, res) => {
     try {
         await pool.query(`DELETE FROM abonnements`);
         res.json({ message: "Toutes les données ont été supprimées" });
@@ -310,7 +315,7 @@ app.delete('/api/abonnements/vider/tout', async (req, res) => {
 });
 
 // 4. ROUTE : DÉPENSES PERSONNELLES
-app.get('/api/depenses-personnelles', async (req, res) => {
+app.get('/api/depenses-personnelles', requireAuth, async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM depenses_personnelles ORDER BY id DESC`);
         res.json(result.rows || []);
@@ -319,7 +324,7 @@ app.get('/api/depenses-personnelles', async (req, res) => {
     }
 });
 
-app.post('/api/depenses-personnelles', async (req, res) => {
+app.post('/api/depenses-personnelles', requireAuth, async (req, res) => {
     const { description, montant } = req.body;
     try {
         const result = await pool.query(
@@ -332,7 +337,7 @@ app.post('/api/depenses-personnelles', async (req, res) => {
     }
 });
 
-app.delete('/api/depenses-personnelles/:id', async (req, res) => {
+app.delete('/api/depenses-personnelles/:id', requireAuth, async (req, res) => {
     try {
         await pool.query(`DELETE FROM depenses_personnelles WHERE id = $1`, [req.params.id]);
         res.json({ message: "Dépense supprimée" });
@@ -342,7 +347,7 @@ app.delete('/api/depenses-personnelles/:id', async (req, res) => {
 });
 
 // 5. ROUTE : ALERTES J-3
-app.get('/api/alertes-j3', async (req, res) => {
+app.get('/api/alertes-j3', requireAuth, async (req, res) => {
     const queryClients = `
         SELECT client_nom as nom, client_telephone as telephone, plateforme, date_fin,
                CAST(CAST(date_fin AS DATE) - CURRENT_DATE AS INTEGER) as jours_restants
