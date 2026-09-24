@@ -29,7 +29,8 @@ const initDb = async () => {
                 mot_de_passe TEXT,
                 cout_achat REAL,
                 max_profils INTEGER,
-                date_reabonnement TEXT
+                date_reabonnement TEXT,
+                carte_bancaire TEXT
             );
         `);
 
@@ -70,6 +71,10 @@ const initDb = async () => {
                     ALTER TABLE abonnements ADD COLUMN compte_maitre_id INTEGER;
                 EXCEPTION WHEN duplicate_column THEN NULL;
                 END;
+                BEGIN
+                    ALTER TABLE comptes_maitres ADD COLUMN carte_bancaire TEXT;
+                EXCEPTION WHEN duplicate_column THEN NULL;
+                END;
             END $$;
         `);
 
@@ -81,7 +86,7 @@ const initDb = async () => {
 
 initDb();
 
-// ROUTE DE DÉCONNEXION (Placée avant la protection par mot de passe)
+// ROUTE DE DÉCONNEXION
 app.get('/logout', (req, res) => {
     res.status(401).set('WWW-Authenticate', 'Basic realm="KOBA STREAMING"').send(`
         <!DOCTYPE html>
@@ -120,7 +125,7 @@ app.use(basicAuth({
     unauthorizedResponse: 'Accès refusé : Identifiants incorrects.'
 }));
 
-// Fichiers statiques (protégés)
+// Fichiers statiques
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ROUTE : RÉSUMÉ FINANCIER (DASHBOARD)
@@ -210,11 +215,11 @@ app.get('/api/comptes-maitres', async (req, res) => {
 });
 
 app.post('/api/comptes-maitres', async (req, res) => {
-    const { plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement } = req.body;
+    const { plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire } = req.body;
     try {
         const result = await pool.query(
-            `INSERT INTO comptes_maitres (plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement]
+            `INSERT INTO comptes_maitres (plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+            [plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire || '']
         );
         res.json({ id: result.rows[0].id });
     } catch (err) {
@@ -224,10 +229,10 @@ app.post('/api/comptes-maitres', async (req, res) => {
 
 app.put('/api/comptes-maitres/:id', async (req, res) => {
     const { id } = req.params;
-    const { plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement } = req.body;
-    const query = `UPDATE comptes_maitres SET plateforme = $1, email = $2, mot_de_passe = $3, cout_achat = $4, max_profils = $5, date_reabonnement = $6 WHERE id = $7`;
+    const { plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire } = req.body;
+    const query = `UPDATE comptes_maitres SET plateforme = $1, email = $2, mot_de_passe = $3, cout_achat = $4, max_profils = $5, date_reabonnement = $6, carte_bancaire = $7 WHERE id = $8`;
     try {
-        await pool.query(query, [plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, id]);
+        await pool.query(query, [plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire || '', id]);
         res.json({ message: "Compte maître mis à jour avec succès !" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -348,7 +353,7 @@ app.get('/api/alertes-j3', async (req, res) => {
         ORDER BY date_fin ASC
     `;
     const queryComptes = `
-        SELECT plateforme, email, date_reabonnement,
+        SELECT plateforme, email, date_reabonnement, carte_bancaire,
                CAST(CAST(date_reabonnement AS DATE) - CURRENT_DATE AS INTEGER) as jours_restants
         FROM comptes_maitres 
         WHERE date_reabonnement IS NOT NULL AND date_reabonnement != '' 

@@ -140,14 +140,16 @@ async function chargerAlertes() {
             tbodyComptes.innerHTML = '';
             if (data.comptesAReabonner && data.comptesAReabonner.length > 0) {
                 data.comptesAReabonner.forEach(c => {
+                    const carteTxt = c.carte_bancaire ? `💳 ${c.carte_bancaire}` : '<span style="color:#888;">-</span>';
                     tbodyComptes.innerHTML += `<tr style="border-bottom: 1px solid #333;">
                         <td><b>${c.plateforme}</b></td>
                         <td>${c.email}</td>
+                        <td>${carteTxt}</td>
                         <td>${c.date_reabonnement}</td>
                     </tr>`;
                 });
             } else {
-                tbodyComptes.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:15px; color:#aaa;">Aucun compte maître à réabonner.</td></tr>`;
+                tbodyComptes.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#aaa;">Aucun compte maître à réabonner.</td></tr>`;
             }
         }
     } catch (e) {
@@ -173,18 +175,21 @@ async function chargerComptes() {
                 const beneficeCompte = totalVendu - c.cout_achat;
                 const profilsUtilises = c.profils_utilises || 0;
                 const mdpVal = c.mot_de_passe || '';
+                const carteVal = c.carte_bancaire || '';
+                const carteTxt = carteVal ? `💳 ${carteVal}` : '<span style="color:#888;">-</span>';
 
                 if (tbody) {
                     tbody.innerHTML += `<tr style="border-bottom: 1px solid #333;">
                         <td><b>${c.plateforme}</b></td>
                         <td>${c.email}</td>
+                        <td>${carteTxt}</td>
                         <td>${c.cout_achat} FCFA</td>
                         <td><span style="color: ${profilsUtilises >= c.max_profils ? '#ff4757' : '#2ed573'}; font-weight: bold;">${profilsUtilises} / ${c.max_profils}</span></td>
                         <td><b>${totalVendu} FCFA</b></td>
                         <td style="color: ${beneficeCompte >= 0 ? '#2ed573' : '#ff4757'}; font-weight: bold;">${beneficeCompte} FCFA</td>
                         <td>${c.date_reabonnement}</td>
                         <td>
-                            <button onclick="editerCompte(${c.id}, '${c.plateforme}', '${c.email}', '${mdpVal}', ${c.cout_achat}, ${c.max_profils}, '${c.date_reabonnement}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                            <button onclick="editerCompte(${c.id}, '${c.plateforme}', '${c.email}', '${mdpVal}', '${carteVal}', ${c.cout_achat}, ${c.max_profils}, '${c.date_reabonnement}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
                             <button onclick="supprimerCompte(${c.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
                         </td>
                     </tr>`;
@@ -199,11 +204,12 @@ async function chargerComptes() {
     }
 }
 
-async function editerCompte(id, plateforme, email, mdp, cout, maxProfils, dateRenouv) {
+async function editerCompte(id, plateforme, email, mdp, carte, cout, maxProfils, dateRenouv) {
     const nouvellePlateforme = prompt("Plateforme :", plateforme);
     if (nouvellePlateforme === null) return;
     const nouvelEmail = prompt("Email du compte :", email);
     const nouveauMdp = prompt("Mot de passe :", mdp);
+    const nouvelleCarte = prompt("Carte bancaire (4 derniers chiffres) :", carte);
     const nouveauCout = prompt("Coût d'achat (FCFA) :", cout);
     const nouveauMax = prompt("Nombre de profils max :", maxProfils);
     const nouvelleDate = prompt("Date de renouvellement (AAAA-MM-JJ) :", dateRenouv);
@@ -212,6 +218,7 @@ async function editerCompte(id, plateforme, email, mdp, cout, maxProfils, dateRe
         plateforme: nouvellePlateforme,
         email: nouvelEmail,
         mot_de_passe: nouveauMdp,
+        carte_bancaire: nouvelleCarte || '',
         cout_achat: parseFloat(nouveauCout) || 0,
         max_profils: parseInt(nouveauMax) || 5,
         date_reabonnement: nouvelleDate
@@ -226,6 +233,7 @@ async function editerCompte(id, plateforme, email, mdp, cout, maxProfils, dateRe
     chargerComptes();
     chargerFinances();
     chargerHistorique();
+    chargerAlertes();
 }
 
 async function supprimerCompte(id) {
@@ -237,6 +245,7 @@ async function supprimerCompte(id) {
                 chargerFinances();
                 chargerHistorique();
                 chargerAbonnes();
+                chargerAlertes();
             } else {
                 const data = await res.json();
                 alert("Erreur : " + (data.error || "Impossible de supprimer ce compte maître."));
@@ -435,12 +444,14 @@ window.onload = () => {
     if (formCompte) {
         formCompte.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const carteElem = document.getElementById('compte-carte');
             const payload = {
                 plateforme: document.getElementById('compte-plateforme').value,
                 email: document.getElementById('compte-email').value,
                 mot_de_passe: document.getElementById('compte-mdp').value,
-                cout_achat: document.getElementById('compte-cout').value,
-                max_profils: document.getElementById('compte-places').value,
+                carte_bancaire: carteElem ? carteElem.value : '',
+                cout_achat: parseFloat(document.getElementById('compte-cout').value) || 0,
+                max_profils: parseInt(document.getElementById('compte-places').value) || 5,
                 date_reabonnement: document.getElementById('compte-date').value
             };
             await fetch('/api/comptes-maitres', {
@@ -454,6 +465,7 @@ window.onload = () => {
             chargerComptes();
             chargerFinances();
             chargerHistorique();
+            chargerAlertes();
         });
     }
 
@@ -496,6 +508,7 @@ window.onload = () => {
                     chargerFinances();
                     chargerComptes();
                     chargerHistorique();
+                    chargerAlertes();
                 } else {
                     console.error("Erreur serveur:", result);
                     document.getElementById('msg-abonne').innerText = "Erreur : " + (result.error || "Enregistrement échoué");

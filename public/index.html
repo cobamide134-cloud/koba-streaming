@@ -110,6 +110,7 @@
                         </select>
                         <input type="email" id="compte-email" placeholder="Email du compte" required>
                         <input type="text" id="compte-mdp" placeholder="Mot de passe">
+                        <input type="text" id="compte-carte" placeholder="Carte bancaire (4 derniers chiffres)" maxlength="4">
                         <input type="number" id="compte-cout" placeholder="Coût d'achat (FCFA)" required>
                         <input type="number" id="compte-places" placeholder="Nombre de profils max" value="5">
                         <div class="form-group-full">
@@ -127,6 +128,7 @@
                             <tr>
                                 <th>Plateforme</th>
                                 <th>Email</th>
+                                <th>Carte</th>
                                 <th>Coût</th>
                                 <th>Profils Actifs</th>
                                 <th>Total Vendu</th>
@@ -244,6 +246,7 @@
                                 <tr>
                                     <th>Plateforme</th>
                                     <th>Email Compte</th>
+                                    <th>Carte Bancaire</th>
                                     <th>Date Renouvellement</th>
                                 </tr>
                             </thead>
@@ -293,7 +296,6 @@
             if (overlay) overlay.classList.toggle('open');
         }
 
-        // Fermeture automatique du menu lors du choix d'un onglet sur téléphone
         document.querySelectorAll('.menu li:not(.menu-logout)').forEach(item => {
             item.addEventListener('click', () => {
                 if (window.innerWidth <= 850) {
