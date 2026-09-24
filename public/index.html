@@ -11,7 +11,7 @@
     <!-- Barre d'en-tête Mobile (iOS & Android) -->
     <header class="mobile-header">
         <div class="brand">
-            <img src="logo.jpg" alt="KOBA STREAMING" class="sidebar-logo">
+            <img src="./logo.jpg" alt="KOBA STREAMING" class="sidebar-logo" onerror="handleLogoError(this)">
             <div class="brand-text">
                 <span class="title">KOBA</span>
                 <span class="subtitle">STREAMING</span>
@@ -24,7 +24,7 @@
         <!-- Barre latérale / Drawer mobile -->
         <div class="sidebar" id="sidebar">
             <div class="brand">
-                <img src="logo.jpg" alt="KOBA STREAMING" class="sidebar-logo">
+                <img src="./logo.jpg" alt="KOBA STREAMING" class="sidebar-logo" onerror="handleLogoError(this)">
                 <div class="brand-text">
                     <span class="title">KOBA</span>
                     <span class="subtitle">STREAMING</span>
@@ -148,7 +148,6 @@
                 <div class="form-container">
                     <h3 id="form-abonne-titre">Nouvelle vente / Nouvel abonné</h3>
                     <form id="form-abonne">
-                        <!-- Champ caché pour identifier l'ID lors de l'édition -->
                         <input type="hidden" id="abo-id" value="">
 
                         <input type="text" id="abo-nom" placeholder="Nom du client" required>
@@ -293,6 +292,25 @@
 
     <script src="script.js"></script>
     <script>
+        // Fonction de secours si logo.jpg n'est pas trouvé immédiatement
+        function handleLogoError(img) {
+            if (!img.dataset.tried) {
+                img.dataset.tried = 'png';
+                img.src = './logo.png';
+            } else if (img.dataset.tried === 'png') {
+                img.dataset.tried = 'jpeg';
+                img.src = './logo.jpeg';
+            } else if (img.dataset.tried === 'jpeg') {
+                img.dataset.tried = 'JPG';
+                img.src = './logo.JPG';
+            } else if (img.dataset.tried === 'JPG') {
+                img.dataset.tried = 'svg';
+                img.src = './logo.svg';
+            } else {
+                img.style.display = 'none'; // Cacher proprement si le fichier est introuvable
+            }
+        }
+
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
