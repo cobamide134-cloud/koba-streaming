@@ -99,6 +99,14 @@ initDb();
 const adminEmail = process.env.ADMIN_EMAIL || 'admin@exemple.com';
 const adminPassword = process.env.ADMIN_PASSWORD || 'motdepasse123';
 
+// MIDDLEWARE DE PROTECTION DES ROUTES
+const requireAuth = (req, res, next) => {
+    if (req.session && req.session.isAuthenticated) {
+        return next();
+    }
+    res.redirect('/login.html');
+};
+
 // ROUTE DE CONNEXION (POST)
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
@@ -117,21 +125,22 @@ app.get('/logout', (req, res) => {
     });
 });
 
-// MIDDLEWARE DE PROTECTION DES ROUTES DU TABLEAU DE BORD
-const requireAuth = (req, res, next) => {
-    if (req.session && req.session.isAuthenticated) {
-        return next();
-    }
-    res.redirect('/login.html');
-};
+// Protection de la page principale (Dashboard)
+app.get('/', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-// Route pour la page de login statique
+app.get('/index.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Route pour la page de connexion
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Protection de l'application principale (Fichiers statiques et APIs)
-app.use('/', requireAuth, express.static(path.join(__dirname, 'public')));
+// SERVIR LES FICHIERS STATIQUES (logo.jpg, style.css, script.js, etc.)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ROUTE : RÉSUMÉ FINANCIER (DASHBOARD)
 app.get('/api/finances/resume', requireAuth, async (req, res) => {
