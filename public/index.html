@@ -122,6 +122,21 @@
                     </form>
                 </div>
                 
+                <!-- Filtre par catégorie / service -->
+                <div class="filter-container" style="margin: 20px 0 10px 0; display: flex; align-items: center; gap: 10px;">
+                    <label for="filtre-plateforme" style="font-weight: bold; color: #fff;">Filtrer par service :</label>
+                    <select id="filtre-plateforme" onchange="filtrerComptesMaitres()" style="padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
+                        <option value="TOUS">Tous les services</option>
+                        <option value="Netflix Co-abonnement">Netflix Co-abonnement</option>
+                        <option value="Netflix Personnel">Netflix Personnel</option>
+                        <option value="Spotify Famille">Spotify Famille</option>
+                        <option value="Prime Video">Prime Video</option>
+                        <option value="Disney+">Disney+</option>
+                        <option value="VPN">VPN</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+
                 <div class="table-responsive">
                     <table id="table-comptes">
                         <thead>
@@ -292,7 +307,6 @@
 
     <script src="script.js"></script>
     <script>
-        // Fonction de secours si logo.jpg n'est pas trouvé immédiatement
         function handleLogoError(img) {
             if (!img.dataset.tried) {
                 img.dataset.tried = 'png';
@@ -307,7 +321,7 @@
                 img.dataset.tried = 'svg';
                 img.src = './logo.svg';
             } else {
-                img.style.display = 'none'; // Cacher proprement si le fichier est introuvable
+                img.style.display = 'none';
             }
         }
 

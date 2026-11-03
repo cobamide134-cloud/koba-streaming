@@ -146,46 +146,67 @@ async function chargerAlertes() {
     }
 }
 
+// Variable globale pour stocker les comptes maîtres récupérés
+let tousLesComptesMaitres = [];
+
 // 4. Charger les Comptes Maîtres
 async function chargerComptes() {
     try {
         const res = await fetch('/api/comptes-maitres');
         const data = await res.json();
+        tousLesComptesMaitres = data.comptes || [];
         
-        const tbody = document.querySelector('#table-comptes tbody');
-        if (tbody) tbody.innerHTML = '';
-
-        if (data.comptes) {
-            data.comptes.forEach(c => {
-                const totalVendu = c.total_vendu || 0;
-                const beneficeCompte = totalVendu - c.cout_achat;
-                const profilsUtilises = c.profils_utilises || 0;
-                const mdpVal = c.mot_de_passe || '';
-                const carteVal = c.carte_bancaire || '';
-                const carteTxt = carteVal ? `💳 ${carteVal}` : '<span style="color:#888;">-</span>';
-
-                if (tbody) {
-                    tbody.innerHTML += `<tr style="border-bottom: 1px solid #333;">
-                        <td><b>${c.plateforme}</b></td>
-                        <td>${c.email}</td>
-                        <td>${carteTxt}</td>
-                        <td>${c.cout_achat} FCFA</td>
-                        <td><span style="color: ${profilsUtilises >= c.max_profils ? '#ff4757' : '#2ed573'}; font-weight: bold;">${profilsUtilises} / ${c.max_profils}</span></td>
-                        <td><b>${totalVendu} FCFA</b></td>
-                        <td style="color: ${beneficeCompte >= 0 ? '#2ed573' : '#ff4757'}; font-weight: bold;">${beneficeCompte} FCFA</td>
-                        <td>${c.date_reabonnement}</td>
-                        <td>
-                            <button onclick="editerCompte(${c.id}, '${c.plateforme}', '${c.email}', '${mdpVal}', '${carteVal}', ${c.cout_achat}, ${c.max_profils}, '${c.date_reabonnement}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
-                            <button onclick="supprimerCompte(${c.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
-                        </td>
-                    </tr>`;
-                }
-            });
-        }
+        // Appliquer l'affichage filtré
+        filtrerComptesMaitres();
         chargerComptesPourSelect();
     } catch (e) {
         console.error("Erreur comptes:", e);
     }
+}
+
+// Filtrer et afficher les comptes maîtres selon la catégorie sélectionnée
+function filtrerComptesMaitres() {
+    const selectFiltre = document.getElementById('filtre-plateforme');
+    const categorieChoisie = selectFiltre ? selectFiltre.value : 'TOUS';
+    const tbody = document.querySelector('#table-comptes tbody');
+    
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    // Filtrer les comptes
+    const comptesFiltres = tousLesComptesMaitres.filter(c => {
+        if (categorieChoisie === 'TOUS') return true;
+        return c.plateforme === categorieChoisie;
+    });
+
+    if (comptesFiltres.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#aaa;">Aucun compte trouvé pour ce service.</td></tr>`;
+        return;
+    }
+
+    comptesFiltres.forEach(c => {
+        const totalVendu = c.total_vendu || 0;
+        const beneficeCompte = totalVendu - c.cout_achat;
+        const profilsUtilises = c.profils_utilises || 0;
+        const mdpVal = c.mot_de_passe || '';
+        const carteVal = c.carte_bancaire || '';
+        const carteTxt = carteVal ? `💳 ${carteVal}` : '<span style="color:#888;">-</span>';
+
+        tbody.innerHTML += `<tr style="border-bottom: 1px solid #333;">
+            <td><b>${c.plateforme}</b></td>
+            <td>${c.email}</td>
+            <td>${carteTxt}</td>
+            <td>${c.cout_achat} FCFA</td>
+            <td><span style="color: ${profilsUtilises >= c.max_profils ? '#ff4757' : '#2ed573'}; font-weight: bold;">${profilsUtilises} / ${c.max_profils}</span></td>
+            <td><b>${totalVendu} FCFA</b></td>
+            <td style="color: ${beneficeCompte >= 0 ? '#2ed573' : '#ff4757'}; font-weight: bold;">${beneficeCompte} FCFA</td>
+            <td>${c.date_reabonnement}</td>
+            <td>
+                <button onclick="editerCompte(${c.id}, '${c.plateforme}', '${c.email}', '${mdpVal}', '${carteVal}', ${c.cout_achat}, ${c.max_profils}, '${c.date_reabonnement}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                <button onclick="supprimerCompte(${c.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
+            </td>
+        </tr>`;
+    });
 }
 
 // Remplir la liste déroulante des comptes maîtres dans le formulaire abonné
@@ -290,7 +311,6 @@ async function chargerAbonnes() {
                     const paiementColor = paiementVal === 'Payé' ? '#2ed573' : '#ff4757';
                     const phoneClean = (a.client_telephone || '').replace(/\D/g, '');
 
-                    // Échappement propre pour éviter les bugs de guillemets
                     const clientNomSafe = (a.client_nom || '').replace(/'/g, "\\'");
                     const clientTelSafe = (a.client_telephone || '').replace(/'/g, "\\'");
                     const profilMdpSafe = (a.profil_mot_de_passe || '').replace(/'/g, "\\'");
@@ -331,7 +351,6 @@ async function supprimerAbonne(id) {
     }
 }
 
-// Remplir le formulaire principal avec les données de l'abonné sélectionné pour édition
 function preparerEditionAbonne(id, nom, tel, plateforme, compteMaitreId, profilMdp, prix, dateFin, renouv, paiement) {
     document.getElementById('abo-id').value = id;
     document.getElementById('abo-nom').value = nom;
@@ -343,15 +362,12 @@ function preparerEditionAbonne(id, nom, tel, plateforme, compteMaitreId, profilM
     document.getElementById('abo-renouvellement').value = renouv;
     document.getElementById('abo-paiement').value = paiement;
 
-    // Charger et sélectionner le bon compte maître dans la liste déroulante
     chargerComptesPourSelect(compteMaitreId);
 
-    // Modifier le titre et les boutons pour indiquer qu'on est en mode modification
     document.getElementById('form-abonne-titre').innerText = "Modifier l'abonné / la vente";
     document.getElementById('btn-submit-abonne').innerText = "Mettre à jour l'abonné";
     document.getElementById('btn-cancel-edit').style.display = "block";
 
-    // Faire remonter la page vers le formulaire pour un meilleur confort visuel
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -489,14 +505,12 @@ window.onload = () => {
             try {
                 let response;
                 if (abonId) {
-                    // Mode Modification (PUT)
                     response = await fetch(`/api/abonnements/${abonId}`, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(payload)
                     });
                 } else {
-                    // Mode Création (POST)
                     response = await fetch('/api/abonnements', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
