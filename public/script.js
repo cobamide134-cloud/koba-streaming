@@ -281,43 +281,68 @@ async function supprimerCompte(id) {
     }
 }
 
-// Variable globale pour stocker la liste complète des abonnés
+// Variables globales pour les abonnés et le filtrage croisé
 let tousLesAbonnes = [];
+let tousLesComptesMaitresPourFiltre = [];
 
 // 5. Charger les Abonnés
 async function chargerAbonnes() {
     try {
-        const res = await fetch('/api/abonnements');
-        const data = await res.json();
-        tousLesAbonnes = data.abonnements || [];
+        const [resAbo, resCompte] = await Promise.all([
+            fetch('/api/abonnements'),
+            fetch('/api/comptes-maitres')
+        ]);
+        const dataAbo = await resAbo.json();
+        const dataCompte = await resCompte.json();
+
+        tousLesAbonnes = dataAbo.abonnements || [];
+        tousLesComptesMaitresPourFiltre = dataCompte.comptes || [];
         
-        // Remplir dynamiquement le menu déroulant des emails
-        remplirFiltreEmailsAbonnes();
-        
-        // Afficher les abonnés filtrés
+        // Mettre à jour les emails selon le service sélectionné, puis filtrer le tableau
+        mettreAJourFiltreEmails();
         filtrerAbonnes();
     } catch (e) {
         console.error("Erreur abonnés:", e);
     }
 }
 
-// Remplir le filtre des emails uniques pour les co-abonnements
-function remplirFiltreEmailsAbonnes() {
-    const selectEmail = document.getElementById('filtre-abo-email');
-    if (!selectEmail) return;
+// Fonction déclenchée lorsqu'on change le service dans le filtre abonnés
+function onChangementServiceAbonnes() {
+    mettreAJourFiltreEmails();
+    filtrerAbonnes();
+}
 
-    const valeurActuelle = selectEmail.value;
-    const emailsUniques = [...new Set(tousLesAbonnes.map(a => a.compte_email).filter(Boolean))];
+// Met à jour dynamiquement la liste déroulante des emails en fonction du service choisi
+function mettreAJourFiltreEmails() {
+    const selectService = document.getElementById('filtre-abo-plateforme');
+    const selectEmail = document.getElementById('filtre-abo-email');
+    if (!selectService || !selectEmail) return;
+
+    const serviceChoisi = selectService.value;
+    const valeurEmailActuelle = selectEmail.value;
+
+    // Filtrer les comptes maîtres pertinents selon le service sélectionné
+    let comptesConcernes = tousLesComptesMaitresPourFiltre;
+    if (serviceChoisi !== 'TOUS') {
+        comptesConcernes = tousLesComptesMaitresPourFiltre.filter(c => c.plateforme === serviceChoisi);
+    }
+
+    const emailsUniques = [...new Set(comptesConcernes.map(c => c.email).filter(Boolean))];
 
     selectEmail.innerHTML = '<option value="TOUS">Tous les emails / Non liés</option>';
     emailsUniques.forEach(email => {
         selectEmail.innerHTML += `<option value="${email}">📧 ${email}</option>`;
     });
 
-    selectEmail.value = valeurActuelle;
+    // Conserver la sélection précédente si elle existe toujours dans la liste filtrée
+    if ([...selectEmail.options].some(opt => opt.value === valeurEmailActuelle)) {
+        selectEmail.value = valeurEmailActuelle;
+    } else {
+        selectEmail.value = 'TOUS';
+    }
 }
 
-// Fonction de double filtrage (Service + Email) pour les abonnés
+// Fonction de double filtrage interconnecté (Service + Email) pour les abonnés
 function filtrerAbonnes() {
     const serviceChoisi = document.getElementById('filtre-abo-plateforme').value;
     const emailChoisi = document.getElementById('filtre-abo-email').value;

@@ -210,16 +210,17 @@
                     </form>
                 </div>
                 
-                <!-- Filtres combinés pour les abonnés (Par Service et par Email de Compte Maître) -->
+                <!-- Filtres combinés avec liaison dynamique service <-> email -->
                 <div class="filters-abonnes" style="display: flex; gap: 15px; margin: 20px 0 10px 0; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 200px;">
                         <label for="filtre-abo-plateforme" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par service :</label>
-                        <select id="filtre-abo-plateforme" onchange="filtrerAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
+                        <select id="filtre-abo-plateforme" onchange="onChangementServiceAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
                             <option value="TOUS">Tous les services</option>
-                            <option value="Netflix">Netflix</option>
-                            <option value="Spotify">Spotify</option>
-                            <option value="Prime">Prime Video</option>
-                            <option value="Disney">Disney+</option>
+                            <option value="Netflix Co-abonnement">Netflix Co-abonnement</option>
+                            <option value="Netflix Personnel">Netflix Personnel</option>
+                            <option value="Spotify Famille">Spotify Famille</option>
+                            <option value="Prime Video">Prime Video</option>
+                            <option value="Disney+">Disney+</option>
                             <option value="VPN">VPN</option>
                             <option value="CapCut Pro">CapCut Pro</option>
                             <option value="ChatGPT Plus">ChatGPT Plus</option>
@@ -227,7 +228,7 @@
                     </div>
 
                     <div style="flex: 1; min-width: 250px;">
-                        <label for="filtre-abo-email" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par Email (Co-abonnement) :</label>
+                        <label for="filtre-abo-email" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par Email (Compte Maître) :</label>
                         <select id="filtre-abo-email" onchange="filtrerAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
                             <option value="TOUS">Tous les emails / Non liés</option>
                         </select>
