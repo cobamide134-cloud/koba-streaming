@@ -2,6 +2,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
 const session = require('express-session');
+const https = require('https'); // Nécessaire pour communiquer avec Google Sheets
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,38 @@ const pool = new Pool({
         rejectUnauthorized: false
     }
 });
+
+// --- FONCTION DE SYNCHRONISATION GOOGLE SHEETS ---
+function syncVersGoogleSheets(typeDonnee, objetDonnees) {
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbwxzbDzlbgMWnHcTczfOmEMO_qbJ_F0QWE1odrwUR4-ne1ejJ7NnRP4aHdcFsv8t8k/exec";
+    
+    const dataString = JSON.stringify({
+        type: typeDonnee,
+        payload: objetDonnees
+    });
+
+    const urlObj = new URL(webAppUrl);
+    const options = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname + urlObj.search,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(dataString)
+        }
+    };
+
+    const req = https.request(options, (res) => {
+        // Enregistrement transparent en arrière-plan
+    });
+
+    req.on('error', (e) => {
+        console.error("Erreur de synchronisation Google Sheets:", e);
+    });
+
+    req.write(dataString);
+    req.end();
+}
 
 // Initialisation automatique des tables dans PostgreSQL
 const initDb = async () => {
@@ -142,6 +175,59 @@ app.get('/login.html', (req, res) => {
 // SERVIR LES FICHIERS STATIQUES (logo.jpg, style.css, script.js, etc.)
 app.use(express.static(path.join(__dirname, 'public')));
 
+
+// --- ROUTE TEMPORAIRE DE MIGRATION DES ANCIENNES DONNÉES ---
+app.get('/api/migrer-vers-sheets', requireAuth, async (req, res) => {
+    try {
+        // 1. Migrer les abonnés
+        const resAbo = await pool.query('SELECT * FROM abonnements');
+        resAbo.rows.forEach(a => {
+            syncVersGoogleSheets("Abonnes", {
+                id: a.id,
+                Client: a.client_nom,
+                Telephone: a.client_telephone,
+                Plateforme: a.plateforme,
+                PrixVente: a.prix_vente,
+                DateFin: a.date_fin,
+                Renouvellement: a.renouvellement,
+                Paiement: a.paiement,
+                CodePIN: a.profil_mot_de_passe || ''
+            });
+        });
+
+        // 2. Migrer les comptes maîtres
+        const resCompte = await pool.query('SELECT * FROM comptes_maitres');
+        resCompte.rows.forEach(c => {
+            syncVersGoogleSheets("ComptesMaitres", {
+                id: c.id,
+                Plateforme: c.plateforme,
+                Email: c.email,
+                CoutAchat: c.cout_achat,
+                MaxProfils: c.max_profils,
+                DateRenouvellement: c.date_reabonnement,
+                CarteBancaire: c.carte_bancaire || ''
+            });
+        });
+
+        // 3. Migrer les dépenses personnelles
+        const resDep = await pool.query('SELECT * FROM depenses_personnelles');
+        resDep.rows.forEach(d => {
+            syncVersGoogleSheets("DepensesPerso", {
+                id: d.id,
+                Description: d.description,
+                Montant: d.montant,
+                Date: d.date
+            });
+        });
+
+        res.send("<h1>Migration lancée avec succès !</h1><p>Vérifiez votre Google Sheet : les onglets 'Abonnes', 'ComptesMaitres' et 'DepensesPerso' devraient se remplir automatiquement d'ici quelques secondes.</p>");
+    } catch (err) {
+        res.status(500).send("Erreur lors de la migration : " + err.message);
+    }
+});
+// -----------------------------------------------------------
+
+
 // ROUTE : RÉSUMÉ FINANCIER (DASHBOARD)
 app.get('/api/finances/resume', requireAuth, async (req, res) => {
     try {
@@ -235,7 +321,21 @@ app.post('/api/comptes-maitres', requireAuth, async (req, res) => {
             `INSERT INTO comptes_maitres (plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
             [plateforme, email, mot_de_passe, cout_achat, max_profils, date_reabonnement, carte_bancaire || '']
         );
-        res.json({ id: result.rows[0].id });
+        
+        const nouvelId = result.rows[0].id;
+
+        // Synchronisation automatique vers Google Sheets
+        syncVersGoogleSheets("ComptesMaitres", {
+            id: nouvelId,
+            Plateforme: plateforme,
+            Email: email,
+            CoutAchat: cout_achat,
+            MaxProfils: max_profils,
+            DateRenouvellement: date_reabonnement,
+            CarteBancaire: carte_bancaire || ''
+        });
+
+        res.json({ id: nouvelId });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -284,7 +384,23 @@ app.post('/api/abonnements', requireAuth, async (req, res) => {
             `INSERT INTO abonnements (client_nom, client_telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
             [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement]
         );
-        res.json({ id: result.rows[0].id });
+        
+        const nouvelId = result.rows[0].id;
+
+        // Synchronisation automatique vers Google Sheets
+        syncVersGoogleSheets("Abonnes", {
+            id: nouvelId,
+            Client: nom,
+            Telephone: telephone,
+            Plateforme: plateforme,
+            PrixVente: prix_vente,
+            DateFin: date_fin,
+            Renouvellement: renouvellement,
+            Paiement: paiement,
+            CodePIN: profil_mot_de_passe || ''
+        });
+
+        res.json({ id: nouvelId });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -308,7 +424,7 @@ app.put('/api/abonnements/:id', requireAuth, async (req, res) => {
 app.delete('/api/abonnements/:id', requireAuth, async (req, res) => {
     try {
         await pool.query(`DELETE FROM abonnements WHERE id = $1`, [req.params.id]);
-        res.json({ message: "Abonnement supprimé" });
+        res.json({ message: "Abonné supprimé" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
