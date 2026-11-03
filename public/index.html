@@ -122,7 +122,7 @@
                     </form>
                 </div>
                 
-                <!-- Filtre par catégorie / service -->
+                <!-- Filtre par catégorie pour les comptes maîtres -->
                 <div class="filter-container" style="margin: 20px 0 10px 0; display: flex; align-items: center; gap: 10px;">
                     <label for="filtre-plateforme" style="font-weight: bold; color: #fff;">Filtrer par service :</label>
                     <select id="filtre-plateforme" onchange="filtrerComptesMaitres()" style="padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
@@ -210,6 +210,30 @@
                     </form>
                 </div>
                 
+                <!-- Filtres combinés pour les abonnés (Par Service et par Email de Compte Maître) -->
+                <div class="filters-abonnes" style="display: flex; gap: 15px; margin: 20px 0 10px 0; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="filtre-abo-plateforme" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par service :</label>
+                        <select id="filtre-abo-plateforme" onchange="filtrerAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
+                            <option value="TOUS">Tous les services</option>
+                            <option value="Netflix">Netflix</option>
+                            <option value="Spotify">Spotify</option>
+                            <option value="Prime">Prime Video</option>
+                            <option value="Disney">Disney+</option>
+                            <option value="VPN">VPN</option>
+                            <option value="CapCut Pro">CapCut Pro</option>
+                            <option value="ChatGPT Plus">ChatGPT Plus</option>
+                        </select>
+                    </div>
+
+                    <div style="flex: 1; min-width: 250px;">
+                        <label for="filtre-abo-email" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par Email (Co-abonnement) :</label>
+                        <select id="filtre-abo-email" onchange="filtrerAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
+                            <option value="TOUS">Tous les emails / Non liés</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="table-header-actions">
                     <h3>Liste des abonnements</h3>
                     <button onclick="viderToutLesAbonnes()" class="btn-danger">🗑️ Vider toute la liste</button>

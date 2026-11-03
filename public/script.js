@@ -156,7 +156,6 @@ async function chargerComptes() {
         const data = await res.json();
         tousLesComptesMaitres = data.comptes || [];
         
-        // Appliquer l'affichage filtré
         filtrerComptesMaitres();
         chargerComptesPourSelect();
     } catch (e) {
@@ -173,7 +172,6 @@ function filtrerComptesMaitres() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    // Filtrer les comptes
     const comptesFiltres = tousLesComptesMaitres.filter(c => {
         if (categorieChoisie === 'TOUS') return true;
         return c.plateforme === categorieChoisie;
@@ -283,61 +281,102 @@ async function supprimerCompte(id) {
     }
 }
 
+// Variable globale pour stocker la liste complète des abonnés
+let tousLesAbonnes = [];
+
 // 5. Charger les Abonnés
 async function chargerAbonnes() {
     try {
         const res = await fetch('/api/abonnements');
         const data = await res.json();
-        const tbody = document.querySelector('#table-abonnes tbody');
+        tousLesAbonnes = data.abonnements || [];
         
-        if (tbody) {
-            tbody.innerHTML = '';
-            if (data.abonnements && data.abonnements.length > 0) {
-                data.abonnements.forEach(a => {
-                    const compteEmail = a.compte_email 
-                        ? `<span style="color:#00a8ff; font-weight:500;">📧 ${a.compte_email}</span>` 
-                        : `<span style="color:#888;">Non lié</span>`;
-                    
-                    const profilPin = a.profil_mot_de_passe 
-                        ? `<span style="background:#333; padding:2px 6px; border-radius:4px; color:#fffa65; font-weight:bold;">🔑 ${a.profil_mot_de_passe}</span>` 
-                        : '-';
-                    
-                    const renouvVal = a.renouvellement || 'Non';
-                    let renouvColor = '#aaa';
-                    if (renouvVal === 'Oui') renouvColor = '#2ed573';
-                    else if (renouvVal === 'Coupé') renouvColor = '#ff4757';
-
-                    const paiementVal = a.paiement || 'Non payé';
-                    const paiementColor = paiementVal === 'Payé' ? '#2ed573' : '#ff4757';
-                    const phoneClean = (a.client_telephone || '').replace(/\D/g, '');
-
-                    const clientNomSafe = (a.client_nom || '').replace(/'/g, "\\'");
-                    const clientTelSafe = (a.client_telephone || '').replace(/'/g, "\\'");
-                    const profilMdpSafe = (a.profil_mot_de_passe || '').replace(/'/g, "\\'");
-
-                    tbody.innerHTML += `
-                        <tr style="border-bottom: 1px solid #333;">
-                            <td><b>${a.client_nom}</b></td>
-                            <td><a style="color:#00A8FF" href="https://wa.me/${phoneClean}" target="_blank">${a.client_telephone}</a></td>
-                            <td><span style="background:#222; padding:3px 8px; border-radius:4px;">${a.plateforme}</span></td>
-                            <td>${compteEmail}</td>
-                            <td>${profilPin}</td>
-                            <td>${a.prix_vente} FCFA</td>
-                            <td>${a.date_fin}</td>
-                            <td><span style="color: ${renouvColor}; font-weight: bold;">${renouvVal}</span></td>
-                            <td><span style="color: ${paiementColor}; font-weight: bold;">${paiementVal}</span></td>
-                            <td>
-                                <button onclick="preparerEditionAbonne(${a.id}, '${clientNomSafe}', '${clientTelSafe}', '${a.plateforme}', ${a.compte_maitre_id || 'null'}, '${profilMdpSafe}', ${a.prix_vente}, '${a.date_fin}', '${renouvVal}', '${paiementVal}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
-                                <button onclick="supprimerAbonne(${a.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
-                            </td>
-                        </tr>`;
-                });
-            } else {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#aaa;">Aucun abonné enregistré.</td></tr>`;
-            }
-        }
+        // Remplir dynamiquement le menu déroulant des emails
+        remplirFiltreEmailsAbonnes();
+        
+        // Afficher les abonnés filtrés
+        filtrerAbonnes();
     } catch (e) {
         console.error("Erreur abonnés:", e);
+    }
+}
+
+// Remplir le filtre des emails uniques pour les co-abonnements
+function remplirFiltreEmailsAbonnes() {
+    const selectEmail = document.getElementById('filtre-abo-email');
+    if (!selectEmail) return;
+
+    const valeurActuelle = selectEmail.value;
+    const emailsUniques = [...new Set(tousLesAbonnes.map(a => a.compte_email).filter(Boolean))];
+
+    selectEmail.innerHTML = '<option value="TOUS">Tous les emails / Non liés</option>';
+    emailsUniques.forEach(email => {
+        selectEmail.innerHTML += `<option value="${email}">📧 ${email}</option>`;
+    });
+
+    selectEmail.value = valeurActuelle;
+}
+
+// Fonction de double filtrage (Service + Email) pour les abonnés
+function filtrerAbonnes() {
+    const serviceChoisi = document.getElementById('filtre-abo-plateforme').value;
+    const emailChoisi = document.getElementById('filtre-abo-email').value;
+    const tbody = document.querySelector('#table-abonnes tbody');
+    
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const abonnementsFiltres = tousLesAbonnes.filter(a => {
+        const matchService = (serviceChoisi === 'TOUS' || a.plateforme === serviceChoisi);
+        let matchEmail = true;
+        if (emailChoisi !== 'TOUS') {
+            matchEmail = (a.compte_email === emailChoisi);
+        }
+        return matchService && matchEmail;
+    });
+
+    if (abonnementsFiltres.length > 0) {
+        abonnementsFiltres.forEach(a => {
+            const compteEmail = a.compte_email 
+                ? `<span style="color:#00a8ff; font-weight:500;">📧 ${a.compte_email}</span>` 
+                : `<span style="color:#888;">Non lié</span>`;
+            
+            const profilPin = a.profil_mot_de_passe 
+                ? `<span style="background:#333; padding:2px 6px; border-radius:4px; color:#fffa65; font-weight:bold;">🔑 ${a.profil_mot_de_passe}</span>` 
+                : '-';
+            
+            const renouvVal = a.renouvellement || 'Non';
+            let renouvColor = '#aaa';
+            if (renouvVal === 'Oui') renouvColor = '#2ed573';
+            else if (renouvVal === 'Coupé') renouvColor = '#ff4757';
+
+            const paiementVal = a.paiement || 'Non payé';
+            const paiementColor = paiementVal === 'Payé' ? '#2ed573' : '#ff4757';
+            const phoneClean = (a.client_telephone || '').replace(/\D/g, '');
+
+            const clientNomSafe = (a.client_nom || '').replace(/'/g, "\\'");
+            const clientTelSafe = (a.client_telephone || '').replace(/'/g, "\\'");
+            const profilMdpSafe = (a.profil_mot_de_passe || '').replace(/'/g, "\\'");
+
+            tbody.innerHTML += `
+                <tr style="border-bottom: 1px solid #333;">
+                    <td><b>${a.client_nom}</b></td>
+                    <td><a style="color:#00A8FF" href="https://wa.me/${phoneClean}" target="_blank">${a.client_telephone}</a></td>
+                    <td><span style="background:#222; padding:3px 8px; border-radius:4px;">${a.plateforme}</span></td>
+                    <td>${compteEmail}</td>
+                    <td>${profilPin}</td>
+                    <td>${a.prix_vente} FCFA</td>
+                    <td>${a.date_fin}</td>
+                    <td><span style="color: ${renouvColor}; font-weight: bold;">${renouvVal}</span></td>
+                    <td><span style="color: ${paiementColor}; font-weight: bold;">${paiementVal}</span></td>
+                    <td>
+                        <button onclick="preparerEditionAbonne(${a.id}, '${clientNomSafe}', '${clientTelSafe}', '${a.plateforme}', ${a.compte_maitre_id || 'null'}, '${profilMdpSafe}', ${a.prix_vente}, '${a.date_fin}', '${renouvVal}', '${paiementVal}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                        <button onclick="supprimerAbonne(${a.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
+                    </td>
+                </tr>`;
+        });
+    } else {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#aaa;">Aucun abonné trouvé avec ces filtres.</td></tr>`;
     }
 }
 
