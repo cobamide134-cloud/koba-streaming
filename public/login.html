@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion - KOBA STREAMING</title>
+    
+    <!-- Favicon et Icône d'écran d'accueil -->
+    <link rel="icon" type="image/jpeg" href="logo.jpg">
+    <link rel="apple-touch-icon" href="logo.jpg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpg">
+
     <style>
         body {
-            background-color: #0b0f19; /* Fond sombre assorti à votre logo */
+            background-color: #0b0f19;
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
@@ -18,7 +24,7 @@
             box-sizing: border-box;
         }
         .card {
-            background: #121826; /* Gris très sombre / bleu nuit */
+            background: #121826;
             border: 1px solid rgba(255, 255, 255, 0.08);
             padding: 40px;
             border-radius: 16px;
@@ -36,7 +42,7 @@
             border-radius: 8px;
         }
         .subtitle-top {
-            color: #00a8ff; /* Bleu électrique de votre logo */
+            color: #00a8ff;
             font-size: 0.75rem;
             font-weight: 800;
             text-transform: uppercase;
@@ -78,12 +84,11 @@
             transition: border-color 0.2s, box-shadow 0.2s;
         }
         input:focus {
-            border-color: #00a8ff; /* Bleu électrique du logo au focus */
+            border-color: #00a8ff;
             box-shadow: 0 0 0 3px rgba(0, 168, 255, 0.2);
         }
         .btn-submit {
             width: 100%;
-            /* Dégradé basé sur le bleu électrique de votre logo */
             background: linear-gradient(135deg, #00a8ff 0%, #0077ff 100%);
             color: #ffffff;
             border: none;
@@ -94,7 +99,7 @@
             cursor: pointer;
             transition: opacity 0.2s, transform 0.1s;
             margin-top: 5px;
-            box-shadow: 0 4px 15px rgba(0, 168, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
         .btn-submit:hover {
             opacity: 0.9;
@@ -143,9 +148,7 @@
             <button type="submit" class="btn-submit">Se connecter</button>
         </form>
 
-        <div class="error-msg" id="error-box">
-            <!-- Message d'erreur dynamique si les identifiants sont faux -->
-        </div>
+        <div class="error-msg" id="error-box"></div>
 
         <div class="footer-security">
             🔒 Accès réservé au propriétaire de la plateforme.

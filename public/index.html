@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no, viewport-fit=cover">
     <title>KOBA STREAMING - Gestion</title>
+    
+    <!-- Favicon et Icône d'écran d'accueil -->
+    <link rel="icon" type="image/jpeg" href="logo.jpg">
+    <link rel="apple-touch-icon" href="logo.jpg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpg">
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -122,7 +128,6 @@
                     </form>
                 </div>
                 
-                <!-- Filtre par catégorie pour les comptes maîtres -->
                 <div class="filter-container" style="margin: 20px 0 10px 0; display: flex; align-items: center; gap: 10px;">
                     <label for="filtre-plateforme" style="font-weight: bold; color: #fff;">Filtrer par service :</label>
                     <select id="filtre-plateforme" onchange="filtrerComptesMaitres()" style="padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
@@ -210,7 +215,6 @@
                     </form>
                 </div>
                 
-                <!-- Filtres combinés avec liaison dynamique service <-> email -->
                 <div class="filters-abonnes" style="display: flex; gap: 15px; margin: 20px 0 10px 0; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 200px;">
                         <label for="filtre-abo-plateforme" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par service :</label>
@@ -261,11 +265,11 @@
                 </div>
             </section>
 
-            <!-- RAPPELS J-3 -->
+            <!-- RAPPELS -->
             <section id="rappels" class="tab-content" style="display:none;">
-                <h1>Rappels Automatiques (J-3)</h1>
+                <h1>Rappels Automatiques</h1>
                 <div class="alerte-section">
-                    <h3 class="title-alert-red">🔴 Abonnements Clients à relancer</h3>
+                    <h3 class="title-alert-red">🔴 Abonnements Clients à relancer (J-7, J-3, J-0)</h3>
                     <div class="table-responsive">
                         <table id="table-alertes-clients">
                             <thead>
@@ -282,7 +286,7 @@
                     </div>
                 </div>
                 <div class="alerte-section" style="margin-top: 30px;">
-                    <h3 class="title-alert-orange">🟠 Comptes Maîtres à renouveler</h3>
+                    <h3 class="title-alert-orange">🟠 Comptes Maîtres à renouveler (J-3)</h3>
                     <div class="table-responsive">
                         <table id="table-alertes-comptes">
                             <thead>
