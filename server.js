@@ -30,7 +30,7 @@ const pool = new Pool({
 
 // --- FONCTION DE SYNCHRONISATION GOOGLE SHEETS ---
 function syncVersGoogleSheets(typeDonnee, objetDonnees) {
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbwxzbDzlbgMWnHcTczfOmEMO_qbJ_F0QWE1odrwUR4-ne1ejJ7NnRP4aHdcFsv8t8k/exec";
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbyfVj3N0FQPWHATobY8sg4Z2AaR3MeY-QbOfUR18ZB2Zh7GohWiNkwhiCEA4D_bEMSs/exec";
     
     const dataString = JSON.stringify({
         type: typeDonnee,
