@@ -27,7 +27,7 @@ const pool = new Pool({
     }
 });
 
-// --- FONCTION DE SYNCHRONISATION GOOGLE SHEETS (Mise à jour avec fetch & redirect) ---
+// --- FONCTION DE SYNCHRONISATION GOOGLE SHEETS ---
 async function syncVersGoogleSheets(typeDonnee, objetDonnees) {
     const webAppUrl = "https://script.google.com/macros/s/AKfycbyfVj3N0FQPWHATobY8sg4Z2AaR3MeY-QbOfUR18ZB2Zh7GohWiNkwhiCEA4D_bEMSs/exec";
     
@@ -41,7 +41,7 @@ async function syncVersGoogleSheets(typeDonnee, objetDonnees) {
                 type: typeDonnee,
                 payload: objetDonnees
             }),
-            redirect: 'follow' // Permet de suivre automatiquement la redirection de Google
+            redirect: 'follow'
         });
     } catch (e) {
         console.error("Erreur de synchronisation Google Sheets:", e);
@@ -76,7 +76,8 @@ const initDb = async () => {
                 prix_vente REAL,
                 date_fin TEXT,
                 renouvellement TEXT,
-                paiement TEXT
+                paiement TEXT,
+                date_vente TEXT
             );
         `);
 
@@ -89,7 +90,7 @@ const initDb = async () => {
             );
         `);
 
-        // Migrations de securite si colonnes manquantes
+        // Migrations de securite et mise à jour automatique des anciennes dates de vente (Date de fin - 1 mois)
         await pool.query(`
             DO $$ 
             BEGIN 
@@ -105,7 +106,18 @@ const initDb = async () => {
                     ALTER TABLE comptes_maitres ADD COLUMN carte_bancaire TEXT;
                 EXCEPTION WHEN duplicate_column THEN NULL;
                 END;
+                BEGIN
+                    ALTER TABLE abonnements ADD COLUMN date_vente TEXT;
+                EXCEPTION WHEN duplicate_column THEN NULL;
+                END;
             END $$;
+        `);
+
+        // Attribution automatique d'une date de vente (1 mois avant la date de fin) pour les lignes qui n'en ont pas
+        await pool.query(`
+            UPDATE abonnements 
+            SET date_vente = TO_CHAR(CAST(date_fin AS DATE) - INTERVAL '1 month', 'YYYY-MM-DD')
+            WHERE date_vente IS NULL OR date_vente = '';
         `);
 
         console.log("Connecté et initialisé sur la base de données PostgreSQL.");
@@ -155,66 +167,12 @@ app.get('/index.html', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route pour la page de connexion
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// SERVIR LES FICHIERS STATIQUES (logo.jpg, style.css, script.js, etc.)
+// SERVIR LES FICHIERS STATIQUES
 app.use(express.static(path.join(__dirname, 'public')));
-
-
-// --- ROUTE TEMPORAIRE DE MIGRATION DES ANCIENNES DONNÉES ---
-app.get('/api/migrer-vers-sheets', requireAuth, async (req, res) => {
-    try {
-        // 1. Migrer les abonnés
-        const resAbo = await pool.query('SELECT * FROM abonnements');
-        for (let a of resAbo.rows) {
-            await syncVersGoogleSheets("Abonnes", {
-                id: a.id,
-                Client: a.client_nom,
-                Telephone: a.client_telephone,
-                Plateforme: a.plateforme,
-                PrixVente: a.prix_vente,
-                DateFin: a.date_fin,
-                Renouvellement: a.renouvellement,
-                Paiement: a.paiement,
-                CodePIN: a.profil_mot_de_passe || ''
-            });
-        }
-
-        // 2. Migrer les comptes maîtres
-        const resCompte = await pool.query('SELECT * FROM comptes_maitres');
-        for (let c of resCompte.rows) {
-            await syncVersGoogleSheets("ComptesMaitres", {
-                id: c.id,
-                Plateforme: c.plateforme,
-                Email: c.email,
-                CoutAchat: c.cout_achat,
-                MaxProfils: c.max_profils,
-                DateRenouvellement: c.date_reabonnement,
-                CarteBancaire: c.carte_bancaire || ''
-            });
-        }
-
-        // 3. Migrer les dépenses personnelles
-        const resDep = await pool.query('SELECT * FROM depenses_personnelles');
-        for (let d of resDep.rows) {
-            await syncVersGoogleSheets("DepensesPerso", {
-                id: d.id,
-                Description: d.description,
-                Montant: d.montant,
-                Date: d.date
-            });
-        }
-
-        res.send("<h1>Migration lancée avec succès !</h1><p>Vérifiez votre Google Sheet : les onglets 'Abonnes', 'ComptesMaitres' et 'DepensesPerso' devraient se remplir automatiquement d'ici quelques secondes.</p>");
-    } catch (err) {
-        res.status(500).send("Erreur lors de la migration : " + err.message);
-    }
-});
-// -----------------------------------------------------------
-
 
 // ROUTE : RÉSUMÉ FINANCIER (DASHBOARD)
 app.get('/api/finances/resume', requireAuth, async (req, res) => {
@@ -240,7 +198,7 @@ app.get('/api/finances/resume', requireAuth, async (req, res) => {
     }
 });
 
-// 1. ROUTE : HISTORIQUE FINANCIER MENSUEL
+// 1. ROUTE : HISTORIQUE FINANCIER MENSUEL (Basé sur la date de vente)
 app.get('/api/finances/historique-mensuel', requireAuth, async (req, res) => {
     const query = `
         SELECT 
@@ -249,7 +207,7 @@ app.get('/api/finances/historique-mensuel', requireAuth, async (req, res) => {
             SUM(couts) as "totalCouts",
             SUM(depenses) as "totalDepenses"
         FROM (
-            SELECT LEFT(date_fin, 7) as mois, prix_vente as revenus, 0 as couts, 0 as depenses FROM abonnements WHERE date_fin IS NOT NULL AND date_fin != ''
+            SELECT LEFT(COALESCE(date_vente, date_fin), 7) as mois, prix_vente as revenus, 0 as couts, 0 as depenses FROM abonnements WHERE (date_vente IS NOT NULL OR date_fin IS NOT NULL)
             UNION ALL
             SELECT LEFT(date_reabonnement, 7) as mois, 0 as revenus, cout_achat as couts, 0 as depenses FROM comptes_maitres WHERE date_reabonnement IS NOT NULL AND date_reabonnement != ''
             UNION ALL
@@ -312,7 +270,6 @@ app.post('/api/comptes-maitres', requireAuth, async (req, res) => {
         
         const nouvelId = result.rows[0].id;
 
-        // Synchronisation automatique vers Google Sheets
         syncVersGoogleSheets("ComptesMaitres", {
             id: nouvelId,
             Plateforme: plateforme,
@@ -366,18 +323,20 @@ app.get('/api/abonnements', requireAuth, async (req, res) => {
 });
 
 app.post('/api/abonnements', requireAuth, async (req, res) => {
-    const { nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement } = req.body;
+    const { nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, date_vente } = req.body;
+    const dateVenteEffective = date_vente || new Date().toISOString().split('T')[0];
+
     try {
         const result = await pool.query(
-            `INSERT INTO abonnements (client_nom, client_telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-            [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement]
+            `INSERT INTO abonnements (client_nom, client_telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, date_vente) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+            [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, dateVenteEffective]
         );
         
         const nouvelId = result.rows[0].id;
 
-        // Synchronisation automatique vers Google Sheets
         syncVersGoogleSheets("Abonnes", {
             id: nouvelId,
+            DateVente: dateVenteEffective,
             Client: nom,
             Telephone: telephone,
             Plateforme: plateforme,
@@ -395,13 +354,13 @@ app.post('/api/abonnements', requireAuth, async (req, res) => {
 });
 
 app.put('/api/abonnements/:id', requireAuth, async (req, res) => {
-    const { nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement } = req.body;
+    const { nom, telephone, plateforme, compte_maitre_id, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, date_vente } = req.body;
     try {
         await pool.query(
             `UPDATE abonnements 
-             SET client_nom = $1, client_telephone = $2, plateforme = $3, compte_maitre_id = $4, nom_profil = $5, profil_mot_de_passe = $6, prix_vente = $7, date_fin = $8, renouvellement = $9, paiement = $10 
-             WHERE id = $11`,
-            [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, req.params.id]
+             SET client_nom = $1, client_telephone = $2, plateforme = $3, compte_maitre_id = $4, nom_profil = $5, profil_mot_de_passe = $6, prix_vente = $7, date_fin = $8, renouvellement = $9, paiement = $10, date_vente = COALESCE($11, date_vente) 
+             WHERE id = $12`,
+            [nom, telephone, plateforme, compte_maitre_id || null, nom_profil, profil_mot_de_passe, prix_vente, date_fin, renouvellement, paiement, date_vente, req.params.id]
         );
         res.json({ message: "Abonnement mis à jour" });
     } catch (err) {
@@ -459,14 +418,14 @@ app.delete('/api/depenses-personnelles/:id', requireAuth, async (req, res) => {
     }
 });
 
-// 5. ROUTE : ALERTES J-3
+// 5. ROUTE : ALERTES (J-7, J-3 et J-0 pour les abonnés / J-3 pour les comptes maîtres)
 app.get('/api/alertes-j3', requireAuth, async (req, res) => {
     const queryClients = `
         SELECT client_nom as nom, client_telephone as telephone, plateforme, date_fin,
                CAST(CAST(date_fin AS DATE) - CURRENT_DATE AS INTEGER) as jours_restants
         FROM abonnements 
         WHERE date_fin IS NOT NULL AND date_fin != '' 
-          AND CAST(date_fin AS DATE) <= CURRENT_DATE + INTERVAL '3 days' 
+          AND CAST(date_fin AS DATE) <= CURRENT_DATE + INTERVAL '7 days' 
           AND CAST(date_fin AS DATE) >= CURRENT_DATE
         ORDER BY date_fin ASC
     `;
