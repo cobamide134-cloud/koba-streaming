@@ -2,7 +2,6 @@ const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
 const session = require('express-session');
-const https = require('https'); // Nécessaire pour communiquer avec Google Sheets
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,36 +27,25 @@ const pool = new Pool({
     }
 });
 
-// --- FONCTION DE SYNCHRONISATION GOOGLE SHEETS ---
-function syncVersGoogleSheets(typeDonnee, objetDonnees) {
+// --- FONCTION DE SYNCHRONISATION GOOGLE SHEETS (Mise à jour avec fetch & redirect) ---
+async function syncVersGoogleSheets(typeDonnee, objetDonnees) {
     const webAppUrl = "https://script.google.com/macros/s/AKfycbyfVj3N0FQPWHATobY8sg4Z2AaR3MeY-QbOfUR18ZB2Zh7GohWiNkwhiCEA4D_bEMSs/exec";
     
-    const dataString = JSON.stringify({
-        type: typeDonnee,
-        payload: objetDonnees
-    });
-
-    const urlObj = new URL(webAppUrl);
-    const options = {
-        hostname: urlObj.hostname,
-        path: urlObj.pathname + urlObj.search,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(dataString)
-        }
-    };
-
-    const req = https.request(options, (res) => {
-        // Enregistrement transparent en arrière-plan
-    });
-
-    req.on('error', (e) => {
+    try {
+        await fetch(webAppUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                type: typeDonnee,
+                payload: objetDonnees
+            }),
+            redirect: 'follow' // Permet de suivre automatiquement la redirection de Google
+        });
+    } catch (e) {
         console.error("Erreur de synchronisation Google Sheets:", e);
-    });
-
-    req.write(dataString);
-    req.end();
+    }
 }
 
 // Initialisation automatique des tables dans PostgreSQL
@@ -181,8 +169,8 @@ app.get('/api/migrer-vers-sheets', requireAuth, async (req, res) => {
     try {
         // 1. Migrer les abonnés
         const resAbo = await pool.query('SELECT * FROM abonnements');
-        resAbo.rows.forEach(a => {
-            syncVersGoogleSheets("Abonnes", {
+        for (let a of resAbo.rows) {
+            await syncVersGoogleSheets("Abonnes", {
                 id: a.id,
                 Client: a.client_nom,
                 Telephone: a.client_telephone,
@@ -193,12 +181,12 @@ app.get('/api/migrer-vers-sheets', requireAuth, async (req, res) => {
                 Paiement: a.paiement,
                 CodePIN: a.profil_mot_de_passe || ''
             });
-        });
+        }
 
         // 2. Migrer les comptes maîtres
         const resCompte = await pool.query('SELECT * FROM comptes_maitres');
-        resCompte.rows.forEach(c => {
-            syncVersGoogleSheets("ComptesMaitres", {
+        for (let c of resCompte.rows) {
+            await syncVersGoogleSheets("ComptesMaitres", {
                 id: c.id,
                 Plateforme: c.plateforme,
                 Email: c.email,
@@ -207,18 +195,18 @@ app.get('/api/migrer-vers-sheets', requireAuth, async (req, res) => {
                 DateRenouvellement: c.date_reabonnement,
                 CarteBancaire: c.carte_bancaire || ''
             });
-        });
+        }
 
         // 3. Migrer les dépenses personnelles
         const resDep = await pool.query('SELECT * FROM depenses_personnelles');
-        resDep.rows.forEach(d => {
-            syncVersGoogleSheets("DepensesPerso", {
+        for (let d of resDep.rows) {
+            await syncVersGoogleSheets("DepensesPerso", {
                 id: d.id,
                 Description: d.description,
                 Montant: d.montant,
                 Date: d.date
             });
-        });
+        }
 
         res.send("<h1>Migration lancée avec succès !</h1><p>Vérifiez votre Google Sheet : les onglets 'Abonnes', 'ComptesMaitres' et 'DepensesPerso' devraient se remplir automatiquement d'ici quelques secondes.</p>");
     } catch (err) {
