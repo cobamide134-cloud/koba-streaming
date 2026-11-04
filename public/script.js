@@ -258,7 +258,6 @@ function filtrerComptesMaitres() {
         const maxProfils = parseInt(c.max_profils) || 5;
         const placesDisponibles = Math.max(0, maxProfils - profilsUtilises);
 
-        // Génération de la jauge visuelle [████░]
         let jaugeHTML = '';
         for (let i = 0; i < maxProfils; i++) {
             jaugeHTML += (i < profilsUtilises) ? '█' : '░';
@@ -418,13 +417,16 @@ function mettreAJourFiltreEmails() {
     }
 }
 
-// Recherche instantanée et filtrage combiné
+// Recherche instantanée et filtrage combiné (corrigé pour l'email)
 function filtrerAbonnes() {
     const texteRecherche = (document.getElementById('input-recherche')?.value || "").toLowerCase().trim();
     const serviceChoisi = document.getElementById('filtre-abo-plateforme')?.value || 'TOUS';
-    const emailChoisi = document.getElementById('filtre-abo-email')?.value || 'TOUS';
-    const tbody = document.querySelector('#table-abonnes tbody');
+    const emailSelectValue = document.getElementById('filtre-abo-email')?.value || 'TOUS';
     
+    // Nettoyer l'émoji et les espaces de l'email sélectionné dans le menu déroulant
+    const emailChoisi = emailSelectValue !== 'TOUS' ? emailSelectValue.replace('📧', '').trim() : 'TOUS';
+
+    const tbody = document.querySelector('#table-abonnes tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -435,10 +437,12 @@ function filtrerAbonnes() {
 
         const matchTexte = !texteRecherche || nom.includes(texteRecherche) || tel.includes(texteRecherche) || plat.includes(texteRecherche);
         const matchService = (serviceChoisi === 'TOUS' || a.plateforme === serviceChoisi);
+        
         let matchEmail = true;
         if (emailChoisi !== 'TOUS') {
-            matchEmail = (a.compte_email === emailChoisi);
+            matchEmail = (a.compte_email && a.compte_email.trim().toLowerCase() === emailChoisi.toLowerCase());
         }
+
         return matchTexte && matchService && matchEmail;
     });
 
@@ -452,7 +456,6 @@ function filtrerAbonnes() {
                 ? `<span style="background:#333; padding:2px 6px; border-radius:4px; color:#fffa65; font-weight:bold;">🔑 ${a.profil_mot_de_passe}</span>` 
                 : '-';
 
-            // Étiquette de statut de paiement
             let badgePaiement = '';
             if (a.paiement === 'Payé') {
                 badgePaiement = '<span style="background: rgba(46,204,113,0.2); color: #2ecc71; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">🟢 Payé</span>';
