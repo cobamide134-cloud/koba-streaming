@@ -47,7 +47,11 @@ function genererLienWhatsApp(telephone, nom, plateforme, joursRestants) {
     return `https://wa.me/${phoneClean}?text=${encodeURIComponent(message)}`;
 }
 
-// 1. Charger le résumé financier (Dashboard)
+// ----------------------------------------------------
+// 1. RÉSUMÉ FINANCIER & GRAPHIQUE CHART.JS
+// ----------------------------------------------------
+let chartInstance = null;
+
 async function chargerFinances() {
     try {
         const res = await fetch('/api/finances/resume');
@@ -58,12 +62,75 @@ async function chargerFinances() {
         document.getElementById('benefice-brut').innerText = `${data.beneficeBrut || 0} FCFA`;
         document.getElementById('total-depenses-perso').innerText = `${data.totalDepensesPerso || 0} FCFA`;
         document.getElementById('solde-net').innerText = `${data.soldeNet || 0} FCFA`;
+
+        chargerGraphiqueBenefices();
     } catch (e) {
         console.error("Erreur finances:", e);
     }
 }
 
-// 2. Charger l'historique financier par mois
+async function chargerGraphiqueBenefices() {
+    try {
+        const res = await fetch('/api/abonnements');
+        const data = await res.json();
+        const abos = data.abonnements || [];
+
+        const benefsParPlateforme = {};
+        let totalBeneficesGlobal = 0;
+
+        abos.forEach(a => {
+            const plat = a.plateforme || 'Autre';
+            const prix = parseFloat(a.prix_vente) || 0;
+            benefsParPlateforme[plat] = (benefsParPlateforme[plat] || 0) + prix;
+            totalBeneficesGlobal += prix;
+        });
+
+        const labels = Object.keys(benefsParPlateforme);
+        const valeurs = Object.values(benefsParPlateforme);
+        const backgroundColors = ['#00a8ff', '#9b59b6', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#1abc9c', '#34495e'];
+
+        const canvasEl = document.getElementById('chartBenefices');
+        if (!canvasEl) return;
+        const ctx = canvasEl.getContext('2d');
+        
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        chartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels.map(l => {
+                    const montant = benefsParPlateforme[l];
+                    const pct = totalBeneficesGlobal > 0 ? ((montant / totalBeneficesGlobal) * 100).toFixed(1) : 0;
+                    return `${l} (${montant.toLocaleString()} FCFA - ${pct}%)`;
+                }),
+                datasets: [{
+                    data: valeurs,
+                    backgroundColor: backgroundColors.slice(0, labels.length),
+                    borderWidth: 1,
+                    borderColor: '#121826'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#d1d5db', font: { size: 12 } }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Erreur graphique:", err);
+    }
+}
+
+// ----------------------------------------------------
+// 2. HISTORIQUE MENSUEL
+// ----------------------------------------------------
 async function chargerHistorique() {
     try {
         const res = await fetch('/api/finances/historique-mensuel');
@@ -93,7 +160,9 @@ async function chargerHistorique() {
     }
 }
 
-// 3. Charger les alertes d'expiration J-3
+// ----------------------------------------------------
+// 3. ALERTES D'EXPIRATION
+// ----------------------------------------------------
 async function chargerAlertes() {
     try {
         const res = await fetch('/api/alertes-j3');
@@ -146,10 +215,11 @@ async function chargerAlertes() {
     }
 }
 
-// Variable globale pour stocker les comptes maîtres récupérés
+// ----------------------------------------------------
+// 4. COMPTES MAÎTRES & JAUGE DE CAPACITÉ
+// ----------------------------------------------------
 let tousLesComptesMaitres = [];
 
-// 4. Charger les Comptes Maîtres
 async function chargerComptes() {
     try {
         const res = await fetch('/api/comptes-maitres');
@@ -163,7 +233,6 @@ async function chargerComptes() {
     }
 }
 
-// Filtrer et afficher les comptes maîtres selon la catégorie sélectionnée
 function filtrerComptesMaitres() {
     const selectFiltre = document.getElementById('filtre-plateforme');
     const categorieChoisie = selectFiltre ? selectFiltre.value : 'TOUS';
@@ -178,36 +247,47 @@ function filtrerComptesMaitres() {
     });
 
     if (comptesFiltres.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#aaa;">Aucun compte trouvé pour ce service.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#aaa;">Aucun compte trouvé pour ce service.</td></tr>`;
         return;
     }
 
     comptesFiltres.forEach(c => {
         const totalVendu = c.total_vendu || 0;
         const beneficeCompte = totalVendu - c.cout_achat;
-        const profilsUtilises = c.profils_utilises || 0;
+        const profilsUtilises = parseInt(c.profils_utilises) || 0;
+        const maxProfils = parseInt(c.max_profils) || 5;
+        const placesDisponibles = Math.max(0, maxProfils - profilsUtilises);
+
+        // Génération de la jauge visuelle [████░]
+        let jaugeHTML = '';
+        for (let i = 0; i < maxProfils; i++) {
+            jaugeHTML += (i < profilsUtilises) ? '█' : '░';
+        }
+        const texteJauge = `[${jaugeHTML}] ${profilsUtilises}/${maxProfils} (${placesDisponibles} dispo)`;
+
         const mdpVal = c.mot_de_passe || '';
         const carteVal = c.carte_bancaire || '';
         const carteTxt = carteVal ? `💳 ${carteVal}` : '<span style="color:#888;">-</span>';
 
         tbody.innerHTML += `<tr style="border-bottom: 1px solid #333;">
-            <td><b>${c.plateforme}</b></td>
+            <td>
+                <b>${c.plateforme}</b><br>
+                <small style="color:#00a8ff; font-family:monospace; font-weight:bold;">${texteJauge}</small>
+            </td>
             <td>${c.email}</td>
             <td>${carteTxt}</td>
             <td>${c.cout_achat} FCFA</td>
-            <td><span style="color: ${profilsUtilises >= c.max_profils ? '#ff4757' : '#2ed573'}; font-weight: bold;">${profilsUtilises} / ${c.max_profils}</span></td>
             <td><b>${totalVendu} FCFA</b></td>
             <td style="color: ${beneficeCompte >= 0 ? '#2ed573' : '#ff4757'}; font-weight: bold;">${beneficeCompte} FCFA</td>
             <td>${c.date_reabonnement}</td>
             <td>
-                <button onclick="editerCompte(${c.id}, '${c.plateforme}', '${c.email}', '${mdpVal}', '${carteVal}', ${c.cout_achat}, ${c.max_profils}, '${c.date_reabonnement}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                <button onclick="editerCompte(${c.id}, '${c.plateforme}', '${c.email}', '${mdpVal}', '${carteVal}', ${c.cout_achat}, ${maxProfils}, '${c.date_reabonnement}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
                 <button onclick="supprimerCompte(${c.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
             </td>
         </tr>`;
     });
 }
 
-// Remplir la liste déroulante des comptes maîtres dans le formulaire abonné
 async function chargerComptesPourSelect(selectedId = null) {
     try {
         const res = await fetch('/api/comptes-maitres');
@@ -281,11 +361,12 @@ async function supprimerCompte(id) {
     }
 }
 
-// Variables globales pour les abonnés et le filtrage croisé
+// ----------------------------------------------------
+// 5. ABONNÉS, RECHERCHE DYNAMIQUE & RENOUVELLEMENT 1 CLIC
+// ----------------------------------------------------
 let tousLesAbonnes = [];
 let tousLesComptesMaitresPourFiltre = [];
 
-// 5. Charger les Abonnés
 async function chargerAbonnes() {
     try {
         const [resAbo, resCompte] = await Promise.all([
@@ -298,7 +379,6 @@ async function chargerAbonnes() {
         tousLesAbonnes = dataAbo.abonnements || [];
         tousLesComptesMaitresPourFiltre = dataCompte.comptes || [];
         
-        // Mettre à jour les emails selon le service sélectionné, puis filtrer le tableau
         mettreAJourFiltreEmails();
         filtrerAbonnes();
     } catch (e) {
@@ -306,13 +386,11 @@ async function chargerAbonnes() {
     }
 }
 
-// Fonction déclenchée lorsqu'on change le service dans le filtre abonnés
 function onChangementServiceAbonnes() {
     mettreAJourFiltreEmails();
     filtrerAbonnes();
 }
 
-// Met à jour dynamiquement la liste déroulante des emails en fonction du service choisi
 function mettreAJourFiltreEmails() {
     const selectService = document.getElementById('filtre-abo-plateforme');
     const selectEmail = document.getElementById('filtre-abo-email');
@@ -321,7 +399,6 @@ function mettreAJourFiltreEmails() {
     const serviceChoisi = selectService.value;
     const valeurEmailActuelle = selectEmail.value;
 
-    // Filtrer les comptes maîtres pertinents selon le service sélectionné
     let comptesConcernes = tousLesComptesMaitresPourFiltre;
     if (serviceChoisi !== 'TOUS') {
         comptesConcernes = tousLesComptesMaitresPourFiltre.filter(c => c.plateforme === serviceChoisi);
@@ -334,7 +411,6 @@ function mettreAJourFiltreEmails() {
         selectEmail.innerHTML += `<option value="${email}">📧 ${email}</option>`;
     });
 
-    // Conserver la sélection précédente si elle existe toujours dans la liste filtrée
     if ([...selectEmail.options].some(opt => opt.value === valeurEmailActuelle)) {
         selectEmail.value = valeurEmailActuelle;
     } else {
@@ -342,22 +418,28 @@ function mettreAJourFiltreEmails() {
     }
 }
 
-// Fonction de double filtrage interconnecté (Service + Email) pour les abonnés
+// Recherche instantanée et filtrage combiné
 function filtrerAbonnes() {
-    const serviceChoisi = document.getElementById('filtre-abo-plateforme').value;
-    const emailChoisi = document.getElementById('filtre-abo-email').value;
+    const texteRecherche = (document.getElementById('input-recherche')?.value || "").toLowerCase().trim();
+    const serviceChoisi = document.getElementById('filtre-abo-plateforme')?.value || 'TOUS';
+    const emailChoisi = document.getElementById('filtre-abo-email')?.value || 'TOUS';
     const tbody = document.querySelector('#table-abonnes tbody');
     
     if (!tbody) return;
     tbody.innerHTML = '';
 
     const abonnementsFiltres = tousLesAbonnes.filter(a => {
+        const nom = (a.client_nom || "").toLowerCase();
+        const tel = (a.client_telephone || "").toLowerCase();
+        const plat = (a.plateforme || "").toLowerCase();
+
+        const matchTexte = !texteRecherche || nom.includes(texteRecherche) || tel.includes(texteRecherche) || plat.includes(texteRecherche);
         const matchService = (serviceChoisi === 'TOUS' || a.plateforme === serviceChoisi);
         let matchEmail = true;
         if (emailChoisi !== 'TOUS') {
             matchEmail = (a.compte_email === emailChoisi);
         }
-        return matchService && matchEmail;
+        return matchTexte && matchService && matchEmail;
     });
 
     if (abonnementsFiltres.length > 0) {
@@ -369,16 +451,18 @@ function filtrerAbonnes() {
             const profilPin = a.profil_mot_de_passe 
                 ? `<span style="background:#333; padding:2px 6px; border-radius:4px; color:#fffa65; font-weight:bold;">🔑 ${a.profil_mot_de_passe}</span>` 
                 : '-';
-            
-            const renouvVal = a.renouvellement || 'Non';
-            let renouvColor = '#aaa';
-            if (renouvVal === 'Oui') renouvColor = '#2ed573';
-            else if (renouvVal === 'Coupé') renouvColor = '#ff4757';
 
-            const paiementVal = a.paiement || 'Non payé';
-            const paiementColor = paiementVal === 'Payé' ? '#2ed573' : '#ff4757';
+            // Étiquette de statut de paiement
+            let badgePaiement = '';
+            if (a.paiement === 'Payé') {
+                badgePaiement = '<span style="background: rgba(46,204,113,0.2); color: #2ecc71; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">🟢 Payé</span>';
+            } else if (a.paiement === 'En attente') {
+                badgePaiement = '<span style="background: rgba(241,196,15,0.2); color: #f1c40f; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">🟠 En attente</span>';
+            } else {
+                badgePaiement = '<span style="background: rgba(231,76,60,0.2); color: #e74c3c; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">🔴 Expiré/Non payé</span>';
+            }
+
             const phoneClean = (a.client_telephone || '').replace(/\D/g, '');
-
             const clientNomSafe = (a.client_nom || '').replace(/'/g, "\\'");
             const clientTelSafe = (a.client_telephone || '').replace(/'/g, "\\'");
             const profilMdpSafe = (a.profil_mot_de_passe || '').replace(/'/g, "\\'");
@@ -391,17 +475,37 @@ function filtrerAbonnes() {
                     <td>${compteEmail}</td>
                     <td>${profilPin}</td>
                     <td>${a.prix_vente} FCFA</td>
-                    <td>${a.date_fin}</td>
-                    <td><span style="color: ${renouvColor}; font-weight: bold;">${renouvVal}</span></td>
-                    <td><span style="color: ${paiementColor}; font-weight: bold;">${paiementVal}</span></td>
+                    <td><b>${a.date_fin}</b></td>
+                    <td>${badgePaiement}</td>
                     <td>
-                        <button onclick="preparerEditionAbonne(${a.id}, '${clientNomSafe}', '${clientTelSafe}', '${a.plateforme}', ${a.compte_maitre_id || 'null'}, '${profilMdpSafe}', ${a.prix_vente}, '${a.date_fin}', '${renouvVal}', '${paiementVal}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                        <button onclick="renouvelerAbonnement(${a.id})" class="btn-sm" style="background: #00a8ff; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;" title="Cliquez pour ajouter +30 jours">🔄 Renouveler</button>
+                    </td>
+                    <td>
+                        <button onclick="preparerEditionAbonne(${a.id}, '${clientNomSafe}', '${clientTelSafe}', '${a.plateforme}', ${a.compte_maitre_id || 'null'}, '${profilMdpSafe}', ${a.prix_vente}, '${a.date_fin}', '${a.renouvellement || 'Non'}', '${a.paiement || 'Payé'}')" style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">✏️ Edit</button>
                         <button onclick="supprimerAbonne(${a.id})" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-left:4px;">🗑️ Suppr</button>
                     </td>
                 </tr>`;
         });
     } else {
         tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#aaa;">Aucun abonné trouvé avec ces filtres.</td></tr>`;
+    }
+}
+
+// Fonction de renouvellement en 1 clic (+30 jours)
+async function renouvelerAbonnement(id) {
+    try {
+        const res = await fetch(`/api/abonnements/${id}/renouveler`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            chargerAbonnes();
+            chargerFinances();
+            chargerAlertes();
+            chargerHistorique();
+        } else {
+            alert("Erreur lors du renouvellement : " + (data.error || 'Erreur inconnue'));
+        }
+    } catch (err) {
+        console.error("Erreur renouvellement 1 clic:", err);
     }
 }
 
@@ -455,7 +559,9 @@ async function viderToutLesAbonnes() {
     }
 }
 
-// 6. Charger les Dépenses Personnelles
+// ----------------------------------------------------
+// 6. DÉPENSES PERSONNELLES
+// ----------------------------------------------------
 async function chargerDepenses() {
     const tbody = document.querySelector('#table-depenses tbody');
     if (!tbody) return;
@@ -505,7 +611,9 @@ async function supprimerDepense(id) {
     }
 }
 
-// Initialisation au chargement de la page
+// ----------------------------------------------------
+// INITIALISATION AU CHARGEMENT DE LA PAGE
+// ----------------------------------------------------
 window.onload = () => {
     chargerFinances();
     chargerComptes();

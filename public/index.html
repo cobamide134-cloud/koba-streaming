@@ -11,6 +11,8 @@
     <link rel="shortcut icon" type="image/jpeg" href="logo.jpg">
 
     <link rel="stylesheet" href="style.css">
+    <!-- Inclusion de Chart.js pour les graphiques -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -74,6 +76,14 @@
                     <div class="card highlight">
                         <h3>SOLDE NET EN CAISSE</h3>
                         <p id="solde-net">0 FCFA</p>
+                    </div>
+                </div>
+
+                <!-- GRAPHIQUE DE RÉPARTITION DES BÉNÉFICES (Chart.js) -->
+                <div class="chart-container" style="background: #121826; padding: 20px; border-radius: 12px; margin-top: 30px; border: 1px solid rgba(255,255,255,0.08);">
+                    <h3 style="margin-bottom: 15px; color: #fff; font-size: 1.1rem;">Répartition des Bénéfices par Service</h3>
+                    <div style="position: relative; height: 300px; max-width: 600px; margin: 0 auto;">
+                        <canvas id="chartBenefices"></canvas>
                     </div>
                 </div>
             </section>
@@ -146,11 +156,10 @@
                     <table id="table-comptes">
                         <thead>
                             <tr>
-                                <th>Plateforme</th>
+                                <th>Plateforme & Jauge Slots</th>
                                 <th>Email</th>
                                 <th>Carte</th>
                                 <th>Coût</th>
-                                <th>Profils Actifs</th>
                                 <th>Total Vendu</th>
                                 <th>Bénéfice Net</th>
                                 <th>Date Renouv.</th>
@@ -205,6 +214,7 @@
                             <label>Paiement :</label>
                             <select id="abo-paiement">
                                 <option value="Payé">Payé</option>
+                                <option value="En attente">En attente</option>
                                 <option value="Non payé">Non payé</option>
                             </select>
                         </div>
@@ -215,8 +225,14 @@
                     </form>
                 </div>
                 
+                <!-- Barre de recherche et filtres -->
                 <div class="filters-abonnes" style="display: flex; gap: 15px; margin: 20px 0 10px 0; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 200px;">
+                    <div style="flex: 2; min-width: 250px;">
+                        <label for="input-recherche" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Recherche instantanée :</label>
+                        <input type="text" id="input-recherche" oninput="filtrerAbonnes()" placeholder="🔍 Rechercher par Nom, Téléphone ou Plateforme..." style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px; box-sizing: border-box;">
+                    </div>
+
+                    <div style="flex: 1; min-width: 180px;">
                         <label for="filtre-abo-plateforme" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par service :</label>
                         <select id="filtre-abo-plateforme" onchange="onChangementServiceAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
                             <option value="TOUS">Tous les services</option>
@@ -231,8 +247,8 @@
                         </select>
                     </div>
 
-                    <div style="flex: 1; min-width: 250px;">
-                        <label for="filtre-abo-email" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par Email (Compte Maître) :</label>
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="filtre-abo-email" style="font-weight: bold; color: #fff; display: block; margin-bottom: 5px;">Filtrer par Email :</label>
                         <select id="filtre-abo-email" onchange="filtrerAbonnes()" style="width: 100%; padding: 10px; border-radius: 6px; background: #1e1e2f; color: white; border: 1px solid #444; font-size: 14px;">
                             <option value="TOUS">Tous les emails / Non liés</option>
                         </select>
@@ -255,8 +271,8 @@
                                 <th>Code PIN</th>
                                 <th>Prix</th>
                                 <th>Date Fin</th>
-                                <th>Renouv.</th>
-                                <th>Paiement</th>
+                                <th>Statut Paiement</th>
+                                <th>Action Renouveler</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>

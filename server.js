@@ -368,6 +368,39 @@ app.put('/api/abonnements/:id', requireAuth, async (req, res) => {
     }
 });
 
+// ROUTE : RENOUVELLEMENT RAPIDE EN 1 CLIC (+30 JOURS)
+app.post('/api/abonnements/:id/renouveler', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query('SELECT date_fin FROM abonnements WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Abonné introuvable" });
+        }
+
+        let dateFinActuelle = result.rows[0].date_fin;
+        let baseCalcul = new Date();
+        
+        if (dateFinActuelle) {
+            const dateExistante = new Date(dateFinActuelle);
+            if (dateExistante > baseCalcul) {
+                baseCalcul = dateExistante;
+            }
+        }
+
+        baseCalcul.setDate(baseCalcul.getDate() + 30);
+        const nouvelleDateFin = baseCalcul.toISOString().split('T')[0];
+
+        await pool.query(
+            `UPDATE abonnements SET date_fin = $1, paiement = 'Payé' WHERE id = $2`,
+            [nouvelleDateFin, id]
+        );
+
+        res.json({ message: "Abonnement renouvelé avec succès pour 30 jours !", nouvelleDateFin });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/abonnements/:id', requireAuth, async (req, res) => {
     try {
         await pool.query(`DELETE FROM abonnements WHERE id = $1`, [req.params.id]);
