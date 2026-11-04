@@ -417,14 +417,14 @@ function mettreAJourFiltreEmails() {
     }
 }
 
-// Recherche instantanée et filtrage combiné (corrigé pour l'email)
+// Recherche instantanée et filtrage combiné (corrigé et robuste pour l'association par email du compte maître)
 function filtrerAbonnes() {
     const texteRecherche = (document.getElementById('input-recherche')?.value || "").toLowerCase().trim();
     const serviceChoisi = document.getElementById('filtre-abo-plateforme')?.value || 'TOUS';
     const emailSelectValue = document.getElementById('filtre-abo-email')?.value || 'TOUS';
     
     // Nettoyer l'émoji et les espaces de l'email sélectionné dans le menu déroulant
-    const emailChoisi = emailSelectValue !== 'TOUS' ? emailSelectValue.replace('📧', '').trim() : 'TOUS';
+    const emailChoisi = emailSelectValue !== 'TOUS' ? emailSelectValue.replace('📧', '').trim().toLowerCase() : 'TOUS';
 
     const tbody = document.querySelector('#table-abonnes tbody');
     if (!tbody) return;
@@ -435,12 +435,26 @@ function filtrerAbonnes() {
         const tel = (a.client_telephone || "").toLowerCase();
         const plat = (a.plateforme || "").toLowerCase();
 
+        // 1. Recherche textuelle (Nom, Téléphone, Plateforme)
         const matchTexte = !texteRecherche || nom.includes(texteRecherche) || tel.includes(texteRecherche) || plat.includes(texteRecherche);
-        const matchService = (serviceChoisi === 'TOUS' || a.plateforme === serviceChoisi);
-        
+
+        // 2. Recherche du compte maître associé à cet abonné
+        const compteAssocie = tousLesComptesMaitresPourFiltre.find(c => parseInt(c.id) === parseInt(a.compte_maitre_id));
+        const emailDuCompteAssocie = compteAssocie ? compteAssocie.email.trim().toLowerCase() : (a.compte_email ? a.compte_email.trim().toLowerCase() : '');
+        const plateformeCompteAssocie = compteAssocie ? compteAssocie.plateforme : a.plateforme;
+
+        // 3. Filtre par service
+        let matchService = true;
+        if (serviceChoisi !== 'TOUS') {
+            const matchPlateformeDirect = (a.plateforme === serviceChoisi);
+            const matchPlateformeCompte = (plateformeCompteAssocie === serviceChoisi);
+            matchService = matchPlateformeDirect || matchPlateformeCompte;
+        }
+
+        // 4. Filtre par Email
         let matchEmail = true;
         if (emailChoisi !== 'TOUS') {
-            matchEmail = (a.compte_email && a.compte_email.trim().toLowerCase() === emailChoisi.toLowerCase());
+            matchEmail = (emailDuCompteAssocie === emailChoisi);
         }
 
         return matchTexte && matchService && matchEmail;
@@ -448,8 +462,12 @@ function filtrerAbonnes() {
 
     if (abonnementsFiltres.length > 0) {
         abonnementsFiltres.forEach(a => {
-            const compteEmail = a.compte_email 
-                ? `<span style="color:#00a8ff; font-weight:500;">📧 ${a.compte_email}</span>` 
+            // Récupérer l'email à afficher proprement
+            const compteAssocie = tousLesComptesMaitresPourFiltre.find(c => parseInt(c.id) === parseInt(a.compte_maitre_id));
+            const emailAffichage = compteAssocie ? compteAssocie.email : a.compte_email;
+
+            const compteEmailHTML = emailAffichage 
+                ? `<span style="color:#00a8ff; font-weight:500;">📧 ${emailAffichage}</span>` 
                 : `<span style="color:#888;">Non lié</span>`;
             
             const profilPin = a.profil_mot_de_passe 
@@ -475,7 +493,7 @@ function filtrerAbonnes() {
                     <td><b>${a.client_nom}</b></td>
                     <td><a style="color:#00A8FF" href="https://wa.me/${phoneClean}" target="_blank">${a.client_telephone}</a></td>
                     <td><span style="background:#222; padding:3px 8px; border-radius:4px;">${a.plateforme}</span></td>
-                    <td>${compteEmail}</td>
+                    <td>${compteEmailHTML}</td>
                     <td>${profilPin}</td>
                     <td>${a.prix_vente} FCFA</td>
                     <td><b>${a.date_fin}</b></td>
